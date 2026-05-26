@@ -1,0 +1,19 @@
+[theme]
+# Màu Đỏ đặc trưng của thương hiệu SSI (Mã màu chuẩn)
+primaryColor = "#ED1C24"
+
+# Nền ứng dụng màu xám tro cực nhạt (giúp nổi bật các thẻ trắng)
+backgroundColor = "#F3F4F6"
+
+# Nền của thanh bên (sidebar) và các thẻ (card) màu trắng tinh
+secondaryBackgroundColor = "#FFFFFF"
+
+# Màu chữ xám đen chuẩn đọc báo cáo tài chính
+textColor = "#111827"
+
+# Dùng font không chân hiện đại, tràn viền
+font = "sans serif"
+
+[ui]
+# Ẩn nút "Deploy" rác ở góc trên cùng bên phải
+hideTopBar = true

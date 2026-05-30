@@ -1,46 +1,87 @@
 import streamlit as st
 import plotly.express as px
+import plotly.graph_objects as go
 import pandas as pd
+import numpy as np
+from datetime import date
+from sklearn.cluster import KMeans
+from sklearn.svm import SVC
 
 st.set_page_config(page_title="Dashboard | SSI BrokerHub", page_icon="assets/logo.png", layout="wide")
 
+# Kiểm tra xác thực khởi tạo
 if "initialized" not in st.session_state:
     st.warning("Vui lòng quay lại trang chủ để hệ thống tải dữ liệu khởi tạo.")
     st.stop()
 
+# Khai báo dữ liệu từ session_state
 customers = st.session_state.customers
 brokers = st.session_state.brokers
 kpi_targets = st.session_state.kpi_targets
+fee_rates = st.session_state.fee_rates
+demo_date = st.session_state.demo_date
+current_broker_id = st.session_state.current_broker_id
+current_broker_name = next((b["name"] for b in brokers if b["id"] == current_broker_id), "Chưa xác định")
 
 st.markdown("<h2 style='color: #000000; margin-bottom: 0px;'>Dashboard Tổng Quan KPI</h2>", unsafe_allow_html=True)
-st.markdown("<p style='color: #6B7280; font-size: 1rem;'>Theo dõi tiến độ hoàn thành chỉ tiêu kinh doanh của nhóm môi giới</p>", unsafe_allow_html=True)
+st.markdown(f"<p style='color: #6B7280; font-size: 1rem;'>Hệ thống quản trị và phân tích dữ liệu đa chiều của Môi giới: <b>{current_broker_name}</b></p>", unsafe_allow_html=True)
 
+# ==========================================
+# KHUNG TÙY CHỈNH VÙNG LÀM VIỆC (ĐÃ SỬA LỖI 4 CỘT)
+# ==========================================
+with st.expander("Tùy chỉnh cấu hình vùng làm việc", expanded=False):
+    col_set1, col_set2, col_set3, col_set4 = st.columns(4)
+    with col_set1:
+        show_charts = st.checkbox("Biểu đồ trực quan", value=True)
+    with col_set2:
+        show_radar = st.checkbox("Radar năng lực", value=True)
+    with col_set3:
+        show_sentiment = st.checkbox("Cảm xúc thị trường", value=True)
+    with col_set4:
+        show_calculator = st.checkbox("Mô hình tính phí", value=True)
+
+st.markdown("<br>", unsafe_allow_html=True)
+
+# ==========================================
+# TRUNG TÂM CẢNH BÁO RỦI RO (Alert Center)
+# ==========================================
+st.markdown("#### Trung tâm cảnh báo rủi ro danh mục")
+risk_customers = [c for c in customers if c.get("profit_margin", 0) < -5.0]
+
+if risk_customers:
+    for rc in risk_customers:
+        b_name = next((b["name"] for b in brokers if b["id"] == rc["broker_id"]), "Chưa phân bổ")
+        st.error(f"Cảnh báo rủi ro: Khách hàng {rc['name']} (Môi giới: {b_name}) ghi nhận mức lỗ {rc['profit_margin']}%. Yêu cầu rà soát danh mục lập tức.")
+else:
+    st.success("Trạng thái ổn định: Không phát hiện tài khoản vi phạm ngưỡng quản trị rủi ro.")
+
+st.markdown("<br>", unsafe_allow_html=True)
+
+# ==========================================
+# PHẦN KPI CHÍNH
+# ==========================================
 total_customers = len(customers)
 active_accounts = len([c for c in customers if c["status"] == "active"])
 total_fee_month3 = sum([b["fee"]["month3"] for b in brokers])
 
-st.markdown("<br>", unsafe_allow_html=True)
 if total_fee_month3 < kpi_targets["monthly_fee"] * 0.8:
-    st.error("CẢNH BÁO QUẢN TRỊ: Sắp kết thúc kỳ đánh giá nhưng tổng doanh số phí chưa đạt 80% KPI. Yêu cầu rà soát danh mục khách hàng.")
+    st.error("CẢNH BÁO QUẢN TRỊ: Tổng doanh số phí chưa đạt 80% KPI kỳ đánh giá. Yêu cầu rà soát danh mục.")
 elif total_fee_month3 < kpi_targets["monthly_fee"]:
-    st.warning("THÔNG BÁO: Nhóm đang thiếu doanh số phí. Đề nghị tăng cường các hoạt động chốt lệnh.")
+    st.warning("THÔNG BÁO: Nhóm chưa hoàn thành chỉ tiêu doanh số phí kỳ này.")
 else:
-    st.success("XÁC NHẬN: Nhóm đã hoàn thành xuất sắc KPI doanh số kỳ này.")
+    st.success("XÁC NHẬN: Toàn nhóm đã hoàn thành xuất sắc KPI doanh số kỳ này.")
 
 st.markdown("#### Tiến độ so với mục tiêu")
-col1, col2, col3 = st.columns(3)
-
-with col1:
+col_kpi1, col_kpi2, col_kpi3 = st.columns(3)
+with col_kpi1:
     with st.container(border=True):
         st.metric(label="Tổng khách hàng quản lý", value=f"{total_customers} / {kpi_targets['customers']}")
         st.progress(min(total_customers / kpi_targets['customers'], 1.0))
-
-with col2:
+with col_kpi2:
     with st.container(border=True):
         st.metric(label="Tài khoản Active", value=f"{active_accounts} / {kpi_targets['active_accounts']}")
         st.progress(min(active_accounts / kpi_targets['active_accounts'], 1.0))
-
-with col3:
+with col_kpi3:
     with st.container(border=True):
         st.metric(label="Doanh số phí (Tháng 3)", value=f"{total_fee_month3:,.0f} VNĐ")
         st.progress(min(total_fee_month3 / kpi_targets['monthly_fee'], 1.0))
@@ -48,51 +89,135 @@ with col3:
 st.markdown("<hr style='margin-top: 2rem; margin-bottom: 2rem;'>", unsafe_allow_html=True)
 
 # ==========================================
-# PHẦN 4: BIỂU ĐỒ TRỰC QUAN (CỘT & ĐƯỜNG)
+# Ý TƯỞNG 2: BIỂU ĐỒ TRỰC QUAN & RADAR NĂNG LỰC
 # ==========================================
-st.markdown("#### Phân tích dữ liệu & Tăng trưởng")
-col_chart1, col_chart2 = st.columns(2)
+if show_charts or show_radar:
+    col_layout1, col_layout2 = st.columns([1, 1])
+    
+    with col_layout1:
+        if show_charts:
+            st.markdown("**Phân bổ doanh số phí môi giới**")
+            df_brokers = pd.DataFrame(brokers)
+            df_brokers['Phí Tháng 3'] = df_brokers['fee'].apply(lambda x: x['month3'])
+            fig_bar = px.bar(df_brokers, x="name", y="Phí Tháng 3", text_auto=".2s")
+            fig_bar.update_traces(marker_color='#ED1C24', textfont_size=12, textposition="outside", cliponaxis=False)
+            fig_bar.update_layout(showlegend=False, margin=dict(t=10, b=20, l=0, r=0), height=320, xaxis_title="", yaxis_title="VNĐ")
+            st.plotly_chart(fig_bar, use_container_width=True)
+            
+    with col_layout2:
+        if show_radar:
+            st.markdown("**Mô hình định vị năng lực (Radar Chart)**")
+            radar_metrics = ['Doanh số phí', 'Tìm kiếm KH mới', 'Giữ chân khách hàng', 'Hiệu suất tư vấn', 'S-Products']
+            fig_radar = go.Figure()
+            fig_radar.add_trace(go.Scatterpolar(
+                r=[85, 70, 90, 65, 80] if current_broker_id == 1 else [75, 85, 60, 80, 70],
+                theta=radar_metrics, fill='toself', name=current_broker_name, line_color='#ED1C24'
+            ))
+            fig_radar.add_trace(go.Scatterpolar(
+                r=[70, 70, 70, 70, 70], theta=radar_metrics, fill='toself', name='Trung bình nhóm', line_color='#000000'
+            ))
+            fig_radar.update_layout(polar=dict(radialaxis=dict(visible=True, range=[0, 100])), showlegend=True, margin=dict(t=30, b=10, l=10, r=10), height=320)
+            st.plotly_chart(fig_radar, use_container_width=True)
 
-with col_chart1:
-    st.markdown("**Phân bổ doanh số phí môi giới**")
-    df_brokers = pd.DataFrame(brokers)
-    df_brokers['Phí Tháng 3'] = df_brokers['fee'].apply(lambda x: x['month3'])
-    fig_bar = px.bar(df_brokers, x="name", y="Phí Tháng 3", text_auto=".2s", labels={"name": "", "Phí Tháng 3": "Doanh số phí (VNĐ)"})
-    fig_bar.update_traces(marker_color='#ED1C24', textfont_size=12, textposition="outside", cliponaxis=False)
-    fig_bar.update_layout(showlegend=False, margin=dict(t=10, b=20, l=0, r=0), height=320)
-    st.plotly_chart(fig_bar, use_container_width=True)
+    st.markdown("<hr style='margin-top: 1rem; margin-bottom: 2rem;'>", unsafe_allow_html=True)
 
-with col_chart2:
-    st.markdown("**Tăng trưởng khách hàng mới (4 tuần qua)**")
-    trend_data = pd.DataFrame({"Tuần": ["Tuần 1", "Tuần 2", "Tuần 3", "Tuần 4"], "Khách Hàng Mới": [2, 5, 4, 9]})
-    fig_line = px.line(trend_data, x="Tuần", y="Khách Hàng Mới", markers=True, labels={"Tuần": "", "Khách Hàng Mới": "Số lượng KH"})
-    fig_line.update_traces(line_color='#000000', marker=dict(size=10, color='#ED1C24', line=dict(width=2, color='white')))
-    fig_line.update_layout(margin=dict(t=10, b=20, l=0, r=0), height=320)
-    st.plotly_chart(fig_line, use_container_width=True)
+# ----------------- MODULE AI ENGINE (Chạy ngầm) -----------------
+df_ai = pd.DataFrame(customers)
+df_ai['days_inactive'] = df_ai['last_trade_date'].apply(lambda x: (demo_date - date.fromisoformat(x)).days)
+# K-Means Clustering
+X_cluster = df_ai[['trade_value', 'profit_margin']]
+kmeans = KMeans(n_clusters=3, random_state=42, n_init=10).fit(X_cluster)
+df_ai['cluster'] = kmeans.predict(X_cluster)
+cluster_map = {df_ai.groupby('cluster')['trade_value'].mean().sort_values().index[i]: v for i, v in enumerate(["Passive Account", "Active Trader", "Premium Account"])}
+df_ai['kmeans_segment'] = df_ai['cluster'].map(cluster_map)
+# SVM Churn Prediction
+y_churn = (df_ai['days_inactive'] > 14).astype(int)
+X_churn = df_ai[['days_inactive', 'profit_margin']]
+if len(y_churn.unique()) > 1:
+    svm_model = SVC(probability=True, random_state=42, kernel='linear').fit(X_churn, y_churn)
+    df_ai['svm_prob'] = np.round(svm_model.predict_proba(X_churn)[:, 1] * 100, 1)
+else:
+    df_ai['svm_prob'] = np.where(df_ai['days_inactive'] > 14, 88.0, 11.0)
+ai_results = df_ai.set_index('id').to_dict('index')
+# ---------------------------------------------------------------
+
+# ==========================================
+# Ý TƯỞNG 1: INTERACTIVE DATA GRID (SIÊU LƯỚI)
+# ==========================================
+st.markdown("#### Quản lý danh sách khách hàng chuyên sâu (Interactive Grid)")
+my_customers = [c for c in customers if c["broker_id"] == current_broker_id]
+df_grid = pd.DataFrame(my_customers)
+
+if not df_grid.empty:
+    df_grid['Phân nhóm AI'] = df_grid['id'].apply(lambda x: ai_results[x]['kmeans_segment'])
+    df_grid['Rủi ro Churn'] = df_grid['id'].apply(lambda x: f"{ai_results[x]['svm_prob']}%")
+    df_grid['Ngày ngưng GD'] = df_grid['id'].apply(lambda x: ai_results[x]['days_inactive'])
+    
+    st.dataframe(
+        df_grid[['name', 'phone', 'last_trade_date', 'Ngày ngưng GD', 'trade_value', 'profit_margin', 'Phân nhóm AI', 'Rủi ro Churn', 'status']],
+        column_config={
+            "name": "Khách hàng",
+            "last_trade_date": "GD Cuối",
+            "Ngày ngưng GD": st.column_config.NumberColumn("Ngưng GD", format="%d ngày"),
+            "trade_value": st.column_config.NumberColumn("NAV (VNĐ)", format="%d"),
+            "profit_margin": st.column_config.ProgressColumn("Hiệu suất", min_value=-20, max_value=20, format="%.1f%%"),
+            "Phân nhóm AI": "Nhóm khách hàng",
+            "Rủi ro Churn": "Xác suất rời bỏ",
+            "status": "Trạng thái"
+        },
+        use_container_width=True, hide_index=True
+    )
+    # Nút Export CSV chuẩn doanh nghiệp
+    st.download_button(label="Kết xuất báo cáo danh mục (CSV)", data=df_grid.to_csv(index=False).encode('utf-8'), file_name=f"SSI_BrokerHub_CRM_{date.today()}.csv", mime="text/csv")
+else:
+    st.info("Chưa có dữ liệu khách hàng được phân bổ.")
 
 st.markdown("<hr style='margin-top: 2rem; margin-bottom: 2rem;'>", unsafe_allow_html=True)
 
-st.markdown("#### Mô hình ước tính doanh số chốt lệnh")
-missing_fee = max(0, kpi_targets['monthly_fee'] - total_fee_month3)
-if missing_fee > 0:
-    st.info(f"Phân tích: Nhóm đang thiếu {missing_fee:,.0f} VNĐ để hoàn thành KPI. Sử dụng công cụ dưới đây để lên kế hoạch bù đắp.")
+# ==========================================
+# Ý TƯỞNG 3: SENTIMENT HUB
+# ==========================================
+if show_sentiment:
+    st.markdown("#### Trung tâm cảm xúc thị trường (Sentiment Hub)")
+    col_sent1, col_sent2 = st.columns([1, 2])
+    with col_sent1:
+        with st.container(border=True):
+            st.markdown("**Chỉ báo tâm lý dòng tiền**")
+            st.markdown("<h2 style='color: #10B981; margin-top: 10px; margin-bottom: 0px;'>TÍCH CỰC (74%)</h2>", unsafe_allow_html=True)
+            st.progress(0.74)
+            st.caption("Khối ngoại mua ròng mạnh rổ VN30.")
+    with col_sent2:
+        news_data = pd.DataFrame({
+            "Tin tức nổi bật": [
+                "Ngân hàng Nhà nước duy trì chính sách nới lỏng hỗ trợ thanh khoản.",
+                "Sản lượng thép Hòa Phát (HPG) đạt kỷ lục trong phiên giao dịch tháng 5.",
+                "FPT ký kết hợp đồng AI chiến lược trị giá 50 triệu USD.",
+                "VN-Index tiếp cận vùng kháng cự tâm lý 1,300 điểm."
+            ],
+            "Tác động": ["Tích cực", "Rất tích cực", "Tích cực", "Trung lập"]
+        })
+        st.dataframe(news_data, use_container_width=True, hide_index=True)
 
-with st.container(border=True):
-    col_calc1, col_calc2 = st.columns(2)
-    with col_calc1:
-        trade_value = st.number_input("Nhập giá trị 1 lệnh dự kiến (VNĐ):", min_value=0, value=100000000, step=10000000)
-        fee_rate = st.selectbox("Tỷ lệ phí áp dụng:", [0.0015, 0.0020, 0.0025], format_func=lambda x: f"{x*100}%")
-    with col_calc2:
-        fee_per_trade = trade_value * fee_rate
-        st.metric("Ước tính phí / lệnh:", f"{fee_per_trade:,.0f} VNĐ")
-        if missing_fee > 0 and fee_per_trade > 0:
-            orders_needed = (missing_fee / fee_per_trade)
-            st.markdown(f"<span style='color: #ED1C24; font-weight: bold;'>Yêu cầu hành động: Cần thực hiện thêm tối thiểu {int(orders_needed) + 1} lệnh tương tự để đạt chỉ tiêu.</span>", unsafe_allow_html=True)
+st.markdown("<hr style='margin-top: 1rem; margin-bottom: 2rem;'>", unsafe_allow_html=True)
+
+# MÁY TÍNH PHÍ (GIỮ NGUYÊN FORM GỐC)
+if show_calculator:
+    st.markdown("#### Mô hình ước tính doanh số chốt lệnh")
+    missing_fee = max(0, kpi_targets['monthly_fee'] - total_fee_month3)
+    if missing_fee > 0: st.info(f"Phân tích: Cần thêm {missing_fee:,.0f} VNĐ phí môi giới để hoàn thành KPI.")
+    with st.container(border=True):
+        col_calc1, col_calc2 = st.columns(2)
+        with col_calc1:
+            val = st.number_input("Giá trị lệnh dự kiến (VNĐ):", min_value=0, value=100000000, step=10000000)
+            rate = st.selectbox("Tỷ lệ phí:", [fee_rates["min"], fee_rates["default"], fee_rates["max"]], index=1, format_func=lambda x: f"{x*100}%")
+        with col_calc2:
+            fee = val * rate
+            st.metric("Ước tính phí thu về:", f"{fee:,.0f} VNĐ")
+            if missing_fee > 0 and fee > 0:
+                st.markdown(f"<span style='color: #ED1C24; font-weight: bold;'>Đề xuất: Cần thực hiện tối thiểu {int(missing_fee / fee) + 1} lệnh tương tự.</span>", unsafe_allow_html=True)
 
 with st.sidebar:
-    st.markdown("<br><br>", unsafe_allow_html=True)
-    st.markdown("---")
-    st.markdown("**CÔNG CỤ ĐIỀU HÀNH**")
+    st.markdown("<br><br>---<br>**CÔNG CỤ ĐIỀU HÀNH**", unsafe_allow_html=True)
     if st.button("Tải lại Kịch bản Demo", use_container_width=True, type="primary"):
         st.session_state.clear()
         st.rerun()

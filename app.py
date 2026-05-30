@@ -1,7 +1,7 @@
 import streamlit as st
 from data.mock_data import (
     customers, brokers, stocks,
-    activities, KPI_TARGETS, DEMO_DATE
+    activities, KPI_TARGETS, DEMO_DATE, FEE_RATES
 )
 
 st.set_page_config(
@@ -18,6 +18,7 @@ if "initialized" not in st.session_state:
     st.session_state.activities         = [a.copy() for a in activities]
     st.session_state.kpi_targets        = KPI_TARGETS
     st.session_state.demo_date          = DEMO_DATE
+    st.session_state.fee_rates          = FEE_RATES
     st.session_state.logged_in          = False
     st.session_state.current_broker_id  = None  
     st.session_state.initialized        = True
@@ -44,15 +45,22 @@ if not st.session_state.logged_in:
         with st.container(border=True):
             st.image("assets/logo.png", width=80)
             st.markdown("<h2 style='color: #ED1C24; margin-bottom: 0px;'>Đăng nhập Hệ thống</h2>", unsafe_allow_html=True)
-            st.caption("Vui lòng xác danh tính môi giới để tiếp tục")
+            st.caption("Xác thực danh tính môi giới qua SSI Smart OTP")
             
             broker_dict = {b["id"]: b["name"] for b in st.session_state.brokers}
             selected_id = st.selectbox("Chọn nhân sự:", options=list(broker_dict.keys()), format_func=lambda x: broker_dict[x])
             
-            if st.button("Truy cập ➔", type="primary", use_container_width=True):
-                st.session_state.current_broker_id = selected_id
-                st.session_state.logged_in = True
-                st.rerun()
+            # Thêm trường giả lập Smart OTP
+            otp_code = st.text_input("Mã xác thực Smart OTP (6 số):", type="password", max_chars=6, placeholder="Nhập mã OTP từ thiết bị...")
+            
+            if st.button("Đăng nhập", type="primary", use_container_width=True):
+                # Kiểm tra phải nhập đúng 6 số thì mới cho qua
+                if len(otp_code) == 6 and otp_code.isdigit():
+                    st.session_state.current_broker_id = selected_id
+                    st.session_state.logged_in = True
+                    st.rerun()
+                else:
+                    st.error("Lỗi xác thực: Vui lòng nhập đúng định dạng 6 chữ số Smart OTP.")
                 
     st.stop()
 

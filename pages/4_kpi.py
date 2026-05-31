@@ -18,7 +18,7 @@ current_broker = next(b for b in brokers if b["id"] == current_broker_id)
 my_customers = [c for c in customers if c["broker_id"] == current_broker_id]
 
 # ==========================================================
-# HEADER ĐỒNG BỘ HOÀN TOÀN THEO PHONG CÁCH CỦA TẤN
+# HEADER ĐỒNG BỘ
 # ==========================================================
 st.markdown("<h2 style='color: #000000; margin-bottom: 0px;'>KPI Scorecard cá nhân</h2>", unsafe_allow_html=True)
 st.markdown("<p style='color: #6B7280; font-size: 1rem;'>Theo dõi tiến độ chỉ tiêu thử việc và xếp hạng thi đua nội bộ phòng</p>", unsafe_allow_html=True)
@@ -167,7 +167,7 @@ with st.container(border=True):
             "Hạng": rank_idx,
             "Thành viên nhóm": b["name"],
             "Kết quả thực hiện": get_val(b),
-            "Định vị danh mục": "🟢 Bạn" if b["id"] == current_broker_id else "Đồng nghiệp"
+            "Định vị danh mục": "Bạn" if b["id"] == current_broker_id else "Đồng nghiệp"
         })
         
     st.dataframe(pd.DataFrame(rank_table), use_container_width=True, hide_index=True)

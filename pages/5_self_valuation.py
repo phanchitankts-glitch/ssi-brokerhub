@@ -125,7 +125,7 @@ with tab3:
             csv_data = df_display.to_csv(index=False).encode('utf-8')
             st.download_button(label="📥 Kết xuất báo cáo (CSV)", data=csv_data, file_name=f"SSI_360_Report_{current_broker['name']}.csv", mime="text/csv")
     else:
-        st.info("Hệ thống chưa ghi nhận phiếu đánh giá nào dành cho bạn. Bạn có thể tự đánh giá ở Tab 1 hoặc chờ đồng nghiệp đánh giá từ tài khoản của họ.")
+        st.info("Hệ thống chưa ghi nhận phiếu đánh giá nào dành cho bạn. Bạn có thể tự đánh giá hoặc chờ đồng nghiệp đánh giá từ tài khoản của họ.")
 
 # ==========================================
 # FOOTER CHUẨN

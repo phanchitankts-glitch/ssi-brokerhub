@@ -3,64 +3,122 @@ import plotly.express as px
 import plotly.graph_objects as go
 import pandas as pd
 import numpy as np
+import base64
 from datetime import date
 from sklearn.cluster import KMeans
 from sklearn.svm import SVC
+from streamlit_option_menu import option_menu
 
 st.set_page_config(page_title="Dashboard | SSI BrokerHub", page_icon="assets/logo.png", layout="wide")
 
-# Kiểm tra xác thực khởi tạo
-if "initialized" not in st.session_state:
-    st.warning("Vui lòng quay lại trang chủ để hệ thống tải dữ liệu khởi tạo.")
-    st.stop()
-import streamlit as st
-import pandas as pd
-# ... (các dòng import khác) ...
-
-st.set_page_config(page_title="...", page_icon="...", layout="wide")
-
-# Khối lệnh kiểm tra đăng nhập (BẮT BUỘC ĐỂ YÊN)
-if "initialized" not in st.session_state or not st.session_state.logged_in:
+# Khối lệnh kiểm tra đăng nhập
+if "initialized" not in st.session_state or getattr(st.session_state, 'logged_in', False) == False:
     st.warning("Vui lòng quay lại trang chủ để đăng nhập.")
     st.stop()
+
 # ========================================================
-# --- TẠO MENU NGANG TRÊN CÙNG (TOP NAVIGATION) - 6 MODULES ---
+# --- ĐỌC LOGO TỪ FILE LOCAL & MÃ HÓA BASE64 ---
+# ========================================================
+def get_base64_image(image_path):
+    try:
+        with open(image_path, "rb") as img_file:
+            return base64.b64encode(img_file.read()).decode()
+    except Exception:
+        return ""
+
+logo_b64 = get_base64_image("assets/logo.png")
+if logo_b64:
+    bg_style = f"url('data:image/png;base64,{logo_b64}'), linear-gradient(to right, #8B0000, #ED1C24)"
+else:
+    bg_style = "linear-gradient(to right, #8B0000, #ED1C24)"
+
+# ========================================================
+# --- TẠO MENU NGANG TRÊN CÙNG (TOP NAVIGATION) CHUẨN SSI ---
 # ========================================================
 st.markdown("""
-<style>
-    /* Ẩn sidebar mặc định */
-    [data-testid='stSidebar'] {display: none !important;}
-    
-    /* Ép cứng font chữ siêu to lên mọi thành phần của Menu */
-    [data-testid="stPageLink"] p,
-    [data-testid="stPageLink"] span,
-    [data-testid="stPageLink"] a,
-    [data-testid="stPageLink-NavLink"] p {
-        font-size: 24px !important;
-        font-weight: 900 !important;
-        line-height: 1.3 !important;
-        white-space: normal !important; /* Cho phép chữ tự rớt dòng */
-        text-align: center !important; 
-    }
-    
-    /* Căn giữa nút bấm trong cột */
-    [data-testid="stPageLink"] {
-        display: flex;
-        justify-content: center;
-        align-items: center;
-    }
-</style>
+    <style>
+        .block-container { padding-top: 1rem !important; padding-bottom: 0rem !important; }
+        [data-testid="collapsedControl"] { display: none; }
+        [data-testid='stSidebar'] {display: none !important;}
+        header[data-testid="stHeader"] {display: none !important;} 
+    </style>
 """, unsafe_allow_html=True)
 
-menu_cols = st.columns(6)
-with menu_cols[0]: st.page_link("pages/1_Tong_Quan.py", label="Tổng Quan")
-with menu_cols[1]: st.page_link("pages/2_Quan_Tri_Danh_Muc.py", label="Quản Trị Danh Mục")
-with menu_cols[2]: st.page_link("pages/3_Khuyen_Nghi_Dau_Tu.py", label="Khuyến Nghị Đầu Tư")
-with menu_cols[3]: st.page_link("pages/4_Theo_Doi_KPI.py", label="Theo Dõi KPI")
-with menu_cols[4]: st.page_link("pages/5_Nhat_Ky_Van_Hanh.py", label="Nhật Ký Vận Hành")
-with menu_cols[5]: st.page_link("pages/6_Danh_Gia_Noi_Bo.py", label="Đánh Giá Nội Bộ")
-st.markdown("---")
-# Khai báo dữ liệu từ session_state
+selected = option_menu(
+    menu_title=None,
+    options=["Tổng Quan", "Quản Trị Danh Mục", "Khuyến Nghị Đầu Tư", "Theo Dõi KPI", "Nhật Ký Vận Hành", "Đánh Giá Nội Bộ"],
+    icons=["house", "briefcase", "graph-up-arrow", "bar-chart", "journal-text", "clipboard-check"],
+    default_index=0, 
+    orientation="horizontal",
+    styles={
+        "container": {
+            "padding": "0px !important", 
+            "background-image": bg_style,
+            "background-repeat": "no-repeat, no-repeat",
+            "background-position": "20px center, center",
+            "background-size": "45px, cover", 
+            "border-radius": "0px", 
+            "max-width": "100%", 
+            "margin": "0px",
+            "height": "65px",
+            "display": "flex",
+            "align-items": "center"
+        },
+        "icon": {
+            "color": "white", 
+            "font-size": "16px",
+            "margin-right": "8px", # Tăng xíu khoảng cách giữa icon và chữ cho thoáng
+            "display": "flex",
+            "align-items": "center"
+        },
+        "nav-link": {
+            "font-size": "13px", 
+            "text-align": "center", 
+            "margin": "0px 2px", 
+            "--hover-color": "rgba(255, 255, 255, 0.15)", 
+            "color": "white", 
+            "font-weight": "bold", 
+            "text-transform": "uppercase", 
+            "padding": "0px 15px", # Bỏ hẳn padding dọc
+            "height": "45px", # Cố định chiều cao nút bấm
+            "display": "flex", # Dùng Flexbox để tự động tính toán tâm
+            "align-items": "center", # Ép trung tâm theo chiều dọc
+            "justify-content": "center", # Ép trung tâm theo chiều ngang
+            "border-radius": "0px",
+            "white-space": "nowrap",
+            "line-height": "1" # Triệt tiêu khoảng trắng bên dưới chân chữ
+        },
+        "nav-link-selected": {
+            "background-color": "rgba(0, 0, 0, 0.25)", 
+            "color": "white"
+        },
+        "nav-pills": {
+            "display": "flex",
+            "align-items": "center",
+            "justify-content": "center", 
+            "width": "100%",
+            "padding-left": "80px", 
+            "margin": "0"
+        }
+    }
+)
+
+# Bản đồ điều hướng
+pages_dict = {
+    "Tổng Quan": "pages/1_Tong_Quan.py",
+    "Quản Trị Danh Mục": "pages/2_Quan_Tri_Danh_Muc.py",
+    "Khuyến Nghị Đầu Tư": "pages/3_Khuyen_Nghi_Dau_Tu.py",
+    "Theo Dõi KPI": "pages/4_Theo_Doi_KPI.py",
+    "Nhật Ký Vận Hành": "pages/5_Nhat_Ky_Van_Hanh.py",
+    "Đánh Giá Nội Bộ": "pages/6_Danh_Gia_Noi_Bo.py"
+}
+
+if pages_dict[selected] != "pages/1_Tong_Quan.py":
+    st.switch_page(pages_dict[selected])
+
+# ==========================================
+# KHAI BÁO DỮ LIỆU TỪ SESSION_STATE
+# ==========================================
 customers = st.session_state.customers
 brokers = st.session_state.brokers
 kpi_targets = st.session_state.kpi_targets
@@ -73,7 +131,7 @@ st.markdown("<h2 style='color: #000000; margin-bottom: 0px;'>Dashboard Tổng Qu
 st.markdown(f"<p style='color: #6B7280; font-size: 1rem;'>Hệ thống quản trị và phân tích dữ liệu đa chiều của Môi giới: <b>{current_broker_name}</b></p>", unsafe_allow_html=True)
 
 # ==========================================
-# KHUNG TÙY CHỈNH VÙNG LÀM VIỆC (ĐÃ SỬA LỖI 4 CỘT)
+# KHUNG TÙY CHỈNH VÙNG LÀM VIỆC
 # ==========================================
 with st.expander("Tùy chỉnh cấu hình vùng làm việc", expanded=False):
     col_set1, col_set2, col_set3, col_set4 = st.columns(4)
@@ -135,7 +193,7 @@ with col_kpi3:
 st.markdown("<hr style='margin-top: 2rem; margin-bottom: 2rem;'>", unsafe_allow_html=True)
 
 # ==========================================
-# Ý TƯỞNG 2: BIỂU ĐỒ TRỰC QUAN & RADAR NĂNG LỰC
+# BIỂU ĐỒ TRỰC QUAN & RADAR NĂNG LỰC
 # ==========================================
 if show_charts or show_radar:
     col_layout1, col_layout2 = st.columns([1, 1])
@@ -155,13 +213,16 @@ if show_charts or show_radar:
             st.markdown("**Mô hình định vị năng lực (Radar Chart)**")
             radar_metrics = ['Doanh số phí', 'Tìm kiếm KH mới', 'Giữ chân khách hàng', 'Hiệu suất tư vấn', 'S-Products']
             fig_radar = go.Figure()
+            
             fig_radar.add_trace(go.Scatterpolar(
                 r=[85, 70, 90, 65, 80] if current_broker_id == 1 else [75, 85, 60, 80, 70],
                 theta=radar_metrics, fill='toself', name=current_broker_name, line_color='#ED1C24'
             ))
+            
             fig_radar.add_trace(go.Scatterpolar(
                 r=[70, 70, 70, 70, 70], theta=radar_metrics, fill='toself', name='Trung bình nhóm', line_color='#000000'
             ))
+            
             fig_radar.update_layout(polar=dict(radialaxis=dict(visible=True, range=[0, 100])), showlegend=True, margin=dict(t=30, b=10, l=10, r=10), height=320)
             st.plotly_chart(fig_radar, use_container_width=True)
 
@@ -170,13 +231,11 @@ if show_charts or show_radar:
 # ----------------- MODULE AI ENGINE (Chạy ngầm) -----------------
 df_ai = pd.DataFrame(customers)
 df_ai['days_inactive'] = df_ai['last_trade_date'].apply(lambda x: (demo_date - date.fromisoformat(x)).days)
-# K-Means Clustering
 X_cluster = df_ai[['trade_value', 'profit_margin']]
 kmeans = KMeans(n_clusters=3, random_state=42, n_init=10).fit(X_cluster)
 df_ai['cluster'] = kmeans.predict(X_cluster)
 cluster_map = {df_ai.groupby('cluster')['trade_value'].mean().sort_values().index[i]: v for i, v in enumerate(["Passive Account", "Active Trader", "Premium Account"])}
 df_ai['kmeans_segment'] = df_ai['cluster'].map(cluster_map)
-# SVM Churn Prediction
 y_churn = (df_ai['days_inactive'] > 14).astype(int)
 X_churn = df_ai[['days_inactive', 'profit_margin']]
 if len(y_churn.unique()) > 1:
@@ -188,7 +247,7 @@ ai_results = df_ai.set_index('id').to_dict('index')
 # ---------------------------------------------------------------
 
 # ==========================================
-# Ý TƯỞNG 1: INTERACTIVE DATA GRID (SIÊU LƯỚI)
+# INTERACTIVE DATA GRID (SIÊU LƯỚI)
 # ==========================================
 st.markdown("#### Quản lý danh sách khách hàng chuyên sâu (Interactive Grid)")
 my_customers = [c for c in customers if c["broker_id"] == current_broker_id]
@@ -213,7 +272,6 @@ if not df_grid.empty:
         },
         use_container_width=True, hide_index=True
     )
-    # Nút Export CSV chuẩn doanh nghiệp
     st.download_button(label="Kết xuất báo cáo danh mục (CSV)", data=df_grid.to_csv(index=False).encode('utf-8'), file_name=f"SSI_BrokerHub_CRM_{date.today()}.csv", mime="text/csv")
 else:
     st.info("Chưa có dữ liệu khách hàng được phân bổ.")
@@ -221,7 +279,7 @@ else:
 st.markdown("<hr style='margin-top: 2rem; margin-bottom: 2rem;'>", unsafe_allow_html=True)
 
 # ==========================================
-# Ý TƯỞNG 3: SENTIMENT HUB
+# SENTIMENT HUB
 # ==========================================
 if show_sentiment:
     st.markdown("#### Trung tâm cảm xúc thị trường (Sentiment Hub)")
@@ -246,7 +304,9 @@ if show_sentiment:
 
 st.markdown("<hr style='margin-top: 1rem; margin-bottom: 2rem;'>", unsafe_allow_html=True)
 
-# MÁY TÍNH PHÍ (GIỮ NGUYÊN FORM GỐC)
+# ==========================================
+# MÁY TÍNH PHÍ 
+# ==========================================
 if show_calculator:
     st.markdown("#### Mô hình ước tính doanh số chốt lệnh")
     missing_fee = max(0, kpi_targets['monthly_fee'] - total_fee_month3)

@@ -104,10 +104,10 @@ if not st.session_state.logged_in:
                     st.session_state.logged_in = True
                     
                     # Lệnh thần thánh: Chuyển hướng thẳng vào trang Điều Hành
-                    st.switch_page("pages/1_Khong_Gian_Dieu_Hanh.py")
+                    st.switch_page("pages/1_Tong_Quan.py")
                 else:
                     st.error("Lỗi: Mã Smart OTP không hợp lệ. Vui lòng nhập 6 chữ số.")
     st.stop()
 else:
     # Nếu đã đăng nhập mà lỡ F5 trang web thì tự động nhảy thẳng vào trang 1
-    st.switch_page("pages/1_Khong_Gian_Dieu_Hanh.py")
+    st.switch_page("pages/1_Tong_Quan.py")

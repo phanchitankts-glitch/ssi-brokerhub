@@ -36,7 +36,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 menu_cols = st.columns(6)
-with menu_cols[0]: st.page_link("pages/1_Khong_Gian_Dieu_Hanh.py", label="Không Gian Điều Hành")
+with menu_cols[0]: st.page_link("pages/1_Tong_Quan.py", label="Tổng Quan")
 with menu_cols[1]: st.page_link("pages/2_Quan_Tri_Danh_Muc.py", label="Quản Trị Danh Mục")
 with menu_cols[2]: st.page_link("pages/3_Khuyen_Nghi_Dau_Tu.py", label="Khuyến Nghị Đầu Tư")
 with menu_cols[3]: st.page_link("pages/4_Theo_Doi_KPI.py", label="Theo Dõi KPI")

@@ -1,87 +1,253 @@
 import streamlit as st
 import pandas as pd
+import base64
+from streamlit_option_menu import option_menu
 
 st.set_page_config(page_title="KPI Cá Nhân | SSI BrokerHub", page_icon="assets/logo.png", layout="wide")
 
-# Kiểm tra xác thực hệ thống
 if "initialized" not in st.session_state or not st.session_state.logged_in:
     st.warning("Yêu cầu xác thực. Vui lòng quay lại trang chủ để đăng nhập hệ thống.")
     st.stop()
 # ========================================================
-# --- TẠO MENU NGANG TRÊN CÙNG (TOP NAVIGATION) - 6 MODULES ---
+# --- THANH TIỆN ÍCH ĐỘNG (THÔNG BÁO, CHAT, PROFILE) ---
 # ========================================================
+# 1. Khởi tạo dữ liệu ảo (Session State) cho thông báo và tin nhắn
+if "notifications" not in st.session_state:
+    st.session_state.notifications = [
+        {"id": 1, "text": "Phòng QTRR: Rà soát danh mục margin", "done": False},
+        {"id": 2, "text": "Họp giao ban môi giới lúc 15h30", "done": False}
+    ]
+if "chat_messages" not in st.session_state:
+    st.session_state.chat_messages = []
+
+# Lấy thông tin tài khoản đang đăng nhập
+current_user_id = st.session_state.current_broker_id
+current_user = next((b for b in st.session_state.brokers if b["id"] == current_user_id), {"name": "Cán bộ SSI"})
+
+# 2. Tinh chỉnh CSS để icon trong suốt và ÉP KHOẢNG CÁCH SÁT XUỐNG MENU ĐỎ
 st.markdown("""
-<style>
-    /* Ẩn sidebar mặc định */
-    [data-testid='stSidebar'] {display: none !important;}
-    
-    /* Ép cứng font chữ siêu to lên mọi thành phần của Menu */
-    [data-testid="stPageLink"] p,
-    [data-testid="stPageLink"] span,
-    [data-testid="stPageLink"] a,
-    [data-testid="stPageLink-NavLink"] p {
-        font-size: 24px !important;
-        font-weight: 900 !important;
-        line-height: 1.3 !important;
-        white-space: normal !important; /* Cho phép chữ tự rớt dòng */
-        text-align: center !important; 
+    <style>
+    div[data-testid="stPopover"] > button {
+        background-color: transparent !important;
+        border: 1px solid rgba(0,0,0,0.15) !important;
+        box-shadow: none !important;
+        padding: 5px 12px !important;
+        color: #4B5563 !important; 
+        font-weight: 600;
+        font-size: 14px;
+        border-radius: 6px;
+        height: 38px;
+        margin-bottom: -15px; /* Kéo xích nút bấm lại gần thanh menu đỏ */
     }
-    
-    /* Căn giữa nút bấm trong cột */
-    [data-testid="stPageLink"] {
-        display: flex;
-        justify-content: center;
-        align-items: center;
+    div[data-testid="stPopover"] > button:hover {
+        color: #ED1C24 !important; 
+        border-color: #ED1C24 !important;
+        background-color: rgba(237, 28, 36, 0.05) !important;
     }
-</style>
+    </style>
 """, unsafe_allow_html=True)
 
-menu_cols = st.columns(6)
-with menu_cols[0]: st.page_link("pages/1_Tong_Quan.py", label="Tổng Quan")
-with menu_cols[1]: st.page_link("pages/2_Quan_Tri_Danh_Muc.py", label="Quản Trị Danh Mục")
-with menu_cols[2]: st.page_link("pages/3_Khuyen_Nghi_Dau_Tu.py", label="Khuyến Nghị Đầu Tư")
-with menu_cols[3]: st.page_link("pages/4_Theo_Doi_KPI.py", label="Theo Dõi KPI")
-with menu_cols[4]: st.page_link("pages/5_Nhat_Ky_Van_Hanh.py", label="Nhật Ký Vận Hành")
-with menu_cols[5]: st.page_link("pages/6_Danh_Gia_Noi_Bo.py", label="Đánh Giá Nội Bộ")
-st.markdown("---")
+# 3. ĐẾM SỐ LƯỢNG CHƯA ĐỌC ĐỂ HIỂN THỊ BADGE (1), (2)...
+unread_notifs = len([n for n in st.session_state.notifications if not n["done"]])
+notif_label = f"Thông báo ({unread_notifs})" if unread_notifs > 0 else "Thông báo"
 
-# Đọc dữ liệu dùng chung từ AppContext
+# Đếm số tin nhắn người khác gửi đích danh cho mình
+unread_msgs = len([m for m in st.session_state.chat_messages if m["to"] == current_user["name"]])
+msg_label = f"Tin nhắn ({unread_msgs})" if unread_msgs > 0 else "Tin nhắn"
+
+# 4. Dàn trang Thanh tiện ích nằm gọn ở góc phải (Căn lề sát nhau)
+col_space, col_notif, col_chat, col_profile = st.columns([5.3, 1.7, 1.5, 2.5])
+
+# ---- Ô THÔNG BÁO ----
+with col_notif:
+    with st.popover(notif_label, icon=":material/notifications_none:"):
+        st.markdown("**Thông báo hệ thống**")
+        active_notifs = [n for n in st.session_state.notifications if not n["done"]]
+        if not active_notifs:
+            st.info("Bạn đã xử lý hết công việc. Không có thông báo mới.")
+        else:
+            for notif in active_notifs:
+                if st.checkbox(notif["text"], key=f"notif_{notif['id']}"):
+                    notif["done"] = True
+                    st.rerun()
+
+# ---- Ô TIN NHẮN ----
+with col_chat:
+    with st.popover(msg_label, icon=":material/chat_bubble_outline:"):
+        st.markdown("**Trao đổi nội bộ**")
+        
+        other_brokers = [b["name"] for b in st.session_state.brokers if b["id"] != current_user_id]
+        chat_target = st.selectbox("Tìm đồng nghiệp:", other_brokers, label_visibility="collapsed")
+        
+        st.divider()
+        
+        history = [m for m in st.session_state.chat_messages 
+                   if (m["from"] == current_user["name"] and m["to"] == chat_target) 
+                   or (m["to"] == current_user["name"] and m["from"] == chat_target)]
+        
+        chat_container = st.container(height=250)
+        with chat_container:
+            if not history:
+                st.caption(f"Bắt đầu trò chuyện với {chat_target}.")
+            for msg in history:
+                if msg["from"] == current_user["name"]:
+                    st.markdown(f"<div style='text-align:right; margin-bottom: 8px;'><span style='background-color:#ED1C24; color:white; padding:8px 12px; border-radius:15px; display:inline-block; max-width:80%;'>{msg['msg']}</span></div>", unsafe_allow_html=True)
+                else:
+                    st.markdown(f"<div style='text-align:left; margin-bottom: 8px;'><span style='background-color:#F3F4F6; color:black; padding:8px 12px; border-radius:15px; display:inline-block; max-width:80%;'><b>{msg['from']}:</b><br>{msg['msg']}</span></div>", unsafe_allow_html=True)
+        
+        new_msg = st.text_input("Nhập tin...", key="chat_input", label_visibility="collapsed", placeholder="Nhập tin nhắn...")
+        if st.button("Gửi tin", use_container_width=True, type="primary"):
+            if new_msg:
+                st.session_state.chat_messages.append({"from": current_user["name"], "to": chat_target, "msg": new_msg})
+                st.rerun()
+
+# ---- Ô TÀI KHOẢN / ĐĂNG XUẤT ----
+with col_profile:
+    with st.popover(current_user['name'], icon=":material/person_outline:"):
+        st.markdown(f"**{current_user['name']}**")
+        st.caption("Trạng thái: Đang hoạt động 🟢")
+        st.divider()
+        
+        # Nút xóa lịch sử tin nhắn (để reset số đếm thông báo nếu muốn)
+        if st.button("Xóa hộp thư đến", use_container_width=True):
+            st.session_state.chat_messages = [m for m in st.session_state.chat_messages if m["to"] != current_user["name"]]
+            st.rerun()
+            
+        if st.button("Đăng xuất", type="primary", use_container_width=True):
+            st.session_state.logged_in = False
+            st.session_state.current_broker_id = None
+            st.switch_page("app.py")
+
+# ========================================================
+
+# ========================================================
+# --- ĐỌC LOGO TỪ FILE LOCAL & MÃ HÓA BASE64 ---
+# ========================================================
+def get_base64_image(image_path):
+    try:
+        with open(image_path, "rb") as img_file:
+            return base64.b64encode(img_file.read()).decode()
+    except Exception:
+        return ""
+
+logo_b64 = get_base64_image("assets/logo.png")
+if logo_b64:
+    bg_style = f"url('data:image/png;base64,{logo_b64}'), linear-gradient(to right, #8B0000, #ED1C24)"
+else:
+    bg_style = "linear-gradient(to right, #8B0000, #ED1C24)"
+
+# ========================================================
+# --- TẠO MENU NGANG TRÊN CÙNG (TOP NAVIGATION) CHUẨN SSI ---
+# ========================================================
+st.markdown("""
+    <style>
+        .block-container { padding-top: 1rem !important; padding-bottom: 0rem !important; }
+        [data-testid="collapsedControl"] { display: none; }
+        [data-testid='stSidebar'] {display: none !important;}
+        header[data-testid="stHeader"] {display: none !important;} 
+    </style>
+""", unsafe_allow_html=True)
+
+selected = option_menu(
+    menu_title=None,
+    options=["Tổng Quan", "Quản Trị Danh Mục", "Khuyến Nghị Đầu Tư", "Theo Dõi KPI", "Nhật Ký Vận Hành", "Đánh Giá Nội Bộ"],
+    icons=["house", "briefcase", "graph-up-arrow", "bar-chart", "journal-text", "clipboard-check"],
+    default_index=3, # <--- Vị trí thứ 4 (Theo dõi KPI)
+    orientation="horizontal",
+    styles={
+        "container": {
+            "padding": "0px !important", 
+            "background-image": bg_style,
+            "background-repeat": "no-repeat, no-repeat",
+            "background-position": "20px center, center",
+            "background-size": "45px, cover", 
+            "border-radius": "0px", 
+            "max-width": "100%", 
+            "margin": "0px",
+            "height": "65px",
+            "display": "flex",
+            "align-items": "center"
+        },
+        "icon": {
+            "color": "white", 
+            "font-size": "16px",
+            "margin-right": "8px",
+            "display": "flex",
+            "align-items": "center"
+        },
+        "nav-link": {
+            "font-size": "13px", 
+            "text-align": "center", 
+            "margin": "0px 2px", 
+            "--hover-color": "rgba(255, 255, 255, 0.15)", 
+            "color": "white", 
+            "font-weight": "bold", 
+            "text-transform": "uppercase", 
+            "padding": "0px 15px", 
+            "height": "45px", 
+            "display": "flex", 
+            "align-items": "center", 
+            "justify-content": "center", 
+            "border-radius": "0px",
+            "white-space": "nowrap",
+            "line-height": "1" 
+        },
+        "nav-link-selected": {
+            "background-color": "rgba(0, 0, 0, 0.25)", 
+            "color": "white"
+        },
+        "nav-pills": {
+            "display": "flex",
+            "align-items": "center",
+            "justify-content": "center", 
+            "width": "100%",
+            "padding-left": "80px", 
+            "margin": "0"
+        }
+    }
+)
+
+pages_dict = {
+    "Tổng Quan": "pages/1_Tong_Quan.py",
+    "Quản Trị Danh Mục": "pages/2_Quan_Tri_Danh_Muc.py",
+    "Khuyến Nghị Đầu Tư": "pages/3_Khuyen_Nghi_Dau_Tu.py",
+    "Theo Dõi KPI": "pages/4_Theo_Doi_KPI.py",
+    "Nhật Ký Vận Hành": "pages/5_Nhat_Ky_Van_Hanh.py",
+    "Đánh Giá Nội Bộ": "pages/6_Danh_Gia_Noi_Bo.py"
+}
+
+if pages_dict[selected] != "pages/4_Theo_Doi_KPI.py":
+    st.switch_page(pages_dict[selected])
+
+# ==========================================
+# KHU VỰC NGHIỆP VỤ 
+# ==========================================
 current_broker_id = st.session_state.current_broker_id
 brokers = st.session_state.brokers
 customers = st.session_state.customers
 
-# Lấy thông tin chi tiết của môi giới hiện tại
 current_broker = next(b for b in brokers if b["id"] == current_broker_id)
 my_customers = [c for c in customers if c["broker_id"] == current_broker_id]
 
-# ==========================================================
-# HEADER ĐỒNG BỘ HOÀN TOÀN THEO PHONG CÁCH CỦA TẤN
-# ==========================================================
 st.markdown("<h2 style='color: #000000; margin-bottom: 0px;'>KPI Scorecard cá nhân</h2>", unsafe_allow_html=True)
 st.markdown("<p style='color: #6B7280; font-size: 1rem;'>Theo dõi tiến độ chỉ tiêu thử việc và xếp hạng thi đua nội bộ phòng</p>", unsafe_allow_html=True)
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# CHỈ TIÊU BẮT BUỘC THEO ĐỀ BÀI THỬ VIỆC TẠI SSI
-t_cust = 20          # 20 khách hàng
-t_active = 10        # 10 tài khoản active
-t_fee = 6000000      # 6,000,000 VNĐ phí môi giới/tháng
+t_cust = 20          
+t_active = 10        
+t_fee = 6000000      
 
-# Tính toán số liệu thực tế dựa trên liên kết dữ liệu chung
 my_total_cust = len(my_customers)
 my_active_cust = len([c for c in my_customers if c["status"] == "active"])
 my_fee_m1 = current_broker["fee"]["month1"]
 my_fee_m2 = current_broker["fee"]["month2"]
 my_fee_m3 = current_broker["fee"]["month3"]
 
-# Tính tỷ lệ phần trăm hoàn thành chỉ tiêu
 pct_cust = (my_total_cust / t_cust) * 100
 pct_active = (my_active_cust / t_active) * 100
 pct_fee = (my_fee_m3 / t_fee) * 100
 
-# ==========================================================
-# PHẦN 1: BẢNG CHỈ SỐ HIỆU SUẤT CHI TIẾT (KPI SCORECARD)
-# ==========================================================
 st.markdown("### I. Bảng chỉ số hiệu suất chi tiết")
 
 col_body1, col_body2 = st.columns([2, 1])
@@ -119,17 +285,16 @@ with col_body2:
         score_active = min(pct_active, 100.0)
         score_fee = min(pct_fee, 100.0)
         
-        # Trọng số đánh giá năng lực: 30% Khách hàng, 30% Active, 40% Doanh số phí
         total_performance_score = (score_cust * 0.3) + (score_active * 0.3) + (score_fee * 0.4)
         
         if total_performance_score >= 100.0:
-            score_color = "#10B981"  # Xanh lá
+            score_color = "#10B981"  
             status_text = "ĐỦ ĐIỀU KIỆN CHÍNH THỨC"
         elif total_performance_score >= 70.0:
-            score_color = "#F59E0B"  # Vàng
+            score_color = "#F59E0B"  
             status_text = "ĐẠT CHUẨN THỬ VIỆC"
         else:
-            score_color = "#ED1C24"  # Đỏ
+            score_color = "#ED1C24"  
             status_text = "CẦN CẢI THIỆN HIỆU SUẤT"
             
         st.markdown(f"<div style='text-align: center; padding: 25px 0px;'>"
@@ -140,9 +305,6 @@ with col_body2:
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# ==========================================================
-# PHẦN 2: PHÂN TÍCH KHOẢNG CÁCH CHỈ TIÊU (GAP ANALYSIS CHI TIẾT)
-# ==========================================================
 st.markdown("### II. Phân tích khoảng cách mục tiêu")
 
 my_inactives = [c for c in my_customers if c.get("status") == "inactive"]
@@ -174,9 +336,6 @@ with col_gap2:
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# ==========================================================
-# PHẦN 3: BẢNG XẾP HẠNG THI ĐUA NỘI BỘ THEO TIÊU CHÍ
-# ==========================================================
 st.markdown("### III. Bảng xếp hạng thi đua nội bộ phòng")
 
 with st.container(border=True):

@@ -15,6 +15,117 @@ st.set_page_config(page_title="Dashboard | SSI BrokerHub", page_icon="assets/log
 if "initialized" not in st.session_state or getattr(st.session_state, 'logged_in', False) == False:
     st.warning("Vui lòng quay lại trang chủ để đăng nhập.")
     st.stop()
+# ========================================================
+# --- THANH TIỆN ÍCH ĐỘNG (THÔNG BÁO, CHAT, PROFILE) ---
+# ========================================================
+# 1. Khởi tạo dữ liệu ảo (Session State) cho thông báo và tin nhắn
+if "notifications" not in st.session_state:
+    st.session_state.notifications = [
+        {"id": 1, "text": "Phòng QTRR: Rà soát danh mục margin", "done": False},
+        {"id": 2, "text": "Họp giao ban môi giới lúc 15h30", "done": False}
+    ]
+if "chat_messages" not in st.session_state:
+    st.session_state.chat_messages = []
+
+# Lấy thông tin tài khoản đang đăng nhập
+current_user_id = st.session_state.current_broker_id
+current_user = next((b for b in st.session_state.brokers if b["id"] == current_user_id), {"name": "Cán bộ SSI"})
+
+# 2. Tinh chỉnh CSS để icon trong suốt và ÉP KHOẢNG CÁCH SÁT XUỐNG MENU ĐỎ
+st.markdown("""
+    <style>
+    div[data-testid="stPopover"] > button {
+        background-color: transparent !important;
+        border: 1px solid rgba(0,0,0,0.15) !important;
+        box-shadow: none !important;
+        padding: 5px 12px !important;
+        color: #4B5563 !important; 
+        font-weight: 600;
+        font-size: 14px;
+        border-radius: 6px;
+        height: 38px;
+        margin-bottom: -15px; /* Kéo xích nút bấm lại gần thanh menu đỏ */
+    }
+    div[data-testid="stPopover"] > button:hover {
+        color: #ED1C24 !important; 
+        border-color: #ED1C24 !important;
+        background-color: rgba(237, 28, 36, 0.05) !important;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
+# 3. ĐẾM SỐ LƯỢNG CHƯA ĐỌC ĐỂ HIỂN THỊ BADGE (1), (2)...
+unread_notifs = len([n for n in st.session_state.notifications if not n["done"]])
+notif_label = f"Thông báo ({unread_notifs})" if unread_notifs > 0 else "Thông báo"
+
+# Đếm số tin nhắn người khác gửi đích danh cho mình
+unread_msgs = len([m for m in st.session_state.chat_messages if m["to"] == current_user["name"]])
+msg_label = f"Tin nhắn ({unread_msgs})" if unread_msgs > 0 else "Tin nhắn"
+
+# 4. Dàn trang Thanh tiện ích nằm gọn ở góc phải (Căn lề sát nhau)
+col_space, col_notif, col_chat, col_profile = st.columns([5.3, 1.7, 1.5, 2.5])
+
+# ---- Ô THÔNG BÁO ----
+with col_notif:
+    with st.popover(notif_label, icon=":material/notifications_none:"):
+        st.markdown("**Thông báo hệ thống**")
+        active_notifs = [n for n in st.session_state.notifications if not n["done"]]
+        if not active_notifs:
+            st.info("Bạn đã xử lý hết công việc. Không có thông báo mới.")
+        else:
+            for notif in active_notifs:
+                if st.checkbox(notif["text"], key=f"notif_{notif['id']}"):
+                    notif["done"] = True
+                    st.rerun()
+
+# ---- Ô TIN NHẮN ----
+with col_chat:
+    with st.popover(msg_label, icon=":material/chat_bubble_outline:"):
+        st.markdown("**Trao đổi nội bộ**")
+        
+        other_brokers = [b["name"] for b in st.session_state.brokers if b["id"] != current_user_id]
+        chat_target = st.selectbox("Tìm đồng nghiệp:", other_brokers, label_visibility="collapsed")
+        
+        st.divider()
+        
+        history = [m for m in st.session_state.chat_messages 
+                   if (m["from"] == current_user["name"] and m["to"] == chat_target) 
+                   or (m["to"] == current_user["name"] and m["from"] == chat_target)]
+        
+        chat_container = st.container(height=250)
+        with chat_container:
+            if not history:
+                st.caption(f"Bắt đầu trò chuyện với {chat_target}.")
+            for msg in history:
+                if msg["from"] == current_user["name"]:
+                    st.markdown(f"<div style='text-align:right; margin-bottom: 8px;'><span style='background-color:#ED1C24; color:white; padding:8px 12px; border-radius:15px; display:inline-block; max-width:80%;'>{msg['msg']}</span></div>", unsafe_allow_html=True)
+                else:
+                    st.markdown(f"<div style='text-align:left; margin-bottom: 8px;'><span style='background-color:#F3F4F6; color:black; padding:8px 12px; border-radius:15px; display:inline-block; max-width:80%;'><b>{msg['from']}:</b><br>{msg['msg']}</span></div>", unsafe_allow_html=True)
+        
+        new_msg = st.text_input("Nhập tin...", key="chat_input", label_visibility="collapsed", placeholder="Nhập tin nhắn...")
+        if st.button("Gửi tin", use_container_width=True, type="primary"):
+            if new_msg:
+                st.session_state.chat_messages.append({"from": current_user["name"], "to": chat_target, "msg": new_msg})
+                st.rerun()
+
+# ---- Ô TÀI KHOẢN / ĐĂNG XUẤT ----
+with col_profile:
+    with st.popover(current_user['name'], icon=":material/person_outline:"):
+        st.markdown(f"**{current_user['name']}**")
+        st.caption("Trạng thái: Đang hoạt động 🟢")
+        st.divider()
+        
+        # Nút xóa lịch sử tin nhắn (để reset số đếm thông báo nếu muốn)
+        if st.button("Xóa hộp thư đến", use_container_width=True):
+            st.session_state.chat_messages = [m for m in st.session_state.chat_messages if m["to"] != current_user["name"]]
+            st.rerun()
+            
+        if st.button("Đăng xuất", type="primary", use_container_width=True):
+            st.session_state.logged_in = False
+            st.session_state.current_broker_id = None
+            st.switch_page("app.py")
+
+# ========================================================
 
 # ========================================================
 # --- ĐỌC LOGO TỪ FILE LOCAL & MÃ HÓA BASE64 ---

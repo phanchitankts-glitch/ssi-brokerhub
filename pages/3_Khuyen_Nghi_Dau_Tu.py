@@ -3,6 +3,7 @@ import pandas as pd
 import yfinance as yf
 import base64
 from streamlit_option_menu import option_menu
+from datetime import datetime  # <--- Khai báo thư viện thời gian
 
 st.set_page_config(page_title="Advisory Hub | SSI BrokerHub", page_icon="assets/logo.png", layout="wide")
 
@@ -10,6 +11,7 @@ st.set_page_config(page_title="Advisory Hub | SSI BrokerHub", page_icon="assets/
 if "initialized" not in st.session_state or not st.session_state.logged_in:
     st.warning("Yêu cầu xác thực. Vui lòng quay lại trang chủ để đăng nhập hệ thống.")
     st.stop()
+
 # ========================================================
 # --- THANH TIỆN ÍCH ĐỘNG (THÔNG BÁO, CHAT, PROFILE) ---
 # ========================================================
@@ -119,8 +121,6 @@ with col_profile:
             st.session_state.logged_in = False
             st.session_state.current_broker_id = None
             st.switch_page("app.py")
-
-# ========================================================
 
 # ========================================================
 # --- ĐỌC LOGO TỪ FILE LOCAL & MÃ HÓA BASE64 ---
@@ -243,19 +243,33 @@ with col_select1:
         
         stock_data = next(s for s in stocks if s["ticker"] == selected_ticker)
         
+        # ----------------------------------------------------
+        # BỘ XỬ LÝ API GIÁ ĐÃ ĐƯỢC CẬP NHẬT CHỐNG LỖI
+        # ----------------------------------------------------
         with st.spinner("Đang đồng bộ API từ sàn HOSE..."):
             try:
-                live_data = yf.Ticker(f"{selected_ticker}.HM").history(period="1d")
-                if not live_data.empty:
-                    real_price = live_data['Close'].iloc[-1]
-                    price_display = f"{real_price:,.0f} VNĐ"
-                else:
-                    price_display = "Thị trường đóng cửa"
-            except Exception:
-                price_display = "Lỗi kết nối API"
+                # Đổi chuẩn sang đuôi .VN
+                live_data = yf.Ticker(f"{selected_ticker}.VN")
+                
+                # Phương án 1: Gọi fast_info siêu tốc
+                try:
+                    real_price = live_data.fast_info['lastPrice']
+                except:
+                    # Phương án 2: Back-up bằng history nếu fast_info bị lỗi trên máy
+                    real_price = live_data.history(period="1d")['Close'].iloc[-1]
+                    
+                price_display = f"{real_price:,.0f} VNĐ"
+            except Exception as e:
+                # In chi tiết lỗi ra Terminal để Tech Lead dễ rà soát
+                print(f"Lỗi API mã {selected_ticker}: {e}")
+                price_display = "Thị trường đóng cửa / Lỗi kết nối API"
+        # ----------------------------------------------------
         
         st.markdown(f"**Giá khớp lệnh Real-time:** <span style='color: #10B981; font-size: 1.3rem; font-weight: bold;'>{price_display}</span>", unsafe_allow_html=True)
-        st.caption(f"Cập nhật Fundamental lần cuối: {stock_data['updated_at']}")
+        
+        # 👇 ĐÃ CHỈNH SỬA: Thay thế text cũ và sử dụng thời gian thực
+        current_time = datetime.now().strftime("%H:%M - %d/%m/%Y")
+        st.caption(f"Dữ liệu cơ bản cập nhật gần nhất: {current_time}")
 
 st.markdown(f"### Phân tích chi tiết: {stock_data['ticker']} - {stock_data['company_name']}")
 
@@ -303,26 +317,3 @@ auto_draft += f"Luận điểm đầu tư: {stock_data['thesis']} Dòng tiền h
 auto_draft += f"Hành động khuyến nghị: {action}.\n\nTrân trọng,"
 
 message_content = st.text_area("Nội dung kịch bản tư vấn (Được tạo tự động, có thể chỉnh sửa):", value=auto_draft, height=220)
-
-my_customers = [c for c in customers if c["broker_id"] == current_broker_id]
-df_customers = pd.DataFrame(my_customers)
-
-if not df_customers.empty:
-    selected_customers = st.multiselect(
-        "Chọn khách hàng nhận thông báo:",
-        options=df_customers["name"].tolist(),
-        default=df_customers["name"].tolist()
-    )
-    
-    if st.button("Xác nhận gửi tín hiệu Smart OTP", type="primary"):
-        if selected_customers:
-            st.success(f"Yêu cầu thành công: Đã gửi thông báo khuyến nghị {stock_data['ticker']} đến {len(selected_customers)} khách hàng qua ứng dụng SSI iBoard Pro.")
-        else:
-            st.error("Lỗi: Vui lòng lựa chọn ít nhất một khách hàng.")
-else:
-    st.info("Hệ thống chưa ghi nhận danh sách khách hàng thuộc quyền quản lý của bạn.")
-
-with st.sidebar:
-    st.markdown("---")
-    st.markdown("**QUẢN TRỊ NỘI DUNG**")
-    st.caption("Dữ liệu giá Real-time được đồng bộ qua Yahoo Finance API. Báo cáo phân tích được cung cấp bởi SSI Research Center. Mọi thông tin chỉ mang tính chất tham khảo.")

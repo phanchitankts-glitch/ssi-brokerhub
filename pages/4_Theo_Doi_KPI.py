@@ -238,11 +238,40 @@ t_cust = 20
 t_active = 10        
 t_fee = 6000000      
 
+# ==============================================================
+# BỔ SUNG: LIÊN KẾT DỮ LIỆU ĐỘNG TỪ TRANG QTDM SANG KPI
+# ==============================================================
+# 1. Tính toán lại NAV động dựa trên giá cổ phiếu để đồng bộ với Trang 2
+for c in customers:
+    total_cost = 0
+    total_nav = 0
+    for p in c.get("portfolio", []):
+        stock_info = next((s for s in st.session_state.stocks if s["ticker"] == p["ticker"]), None)
+        if stock_info and "current_price" in stock_info:
+            cur_price = stock_info["current_price"]
+        else:
+            base_str = stock_info.get("buy_zone", "30.0").split(" - ")[0] if stock_info else "30.0"
+            try: cur_price = float(base_str.replace(',', '')) * 1000
+            except: cur_price = 30000.0
+            
+        total_cost += p["volume"] * p["avg_price"]
+        total_nav += p["volume"] * cur_price
+
+    if total_cost > 0:
+        c["trade_value"] = total_nav
+        c["profit_margin"] = ((total_nav - total_cost) / total_cost) * 100
+
+# 2. Cập nhật Doanh số phí (Tháng 3) cho tất cả Broker dựa trên NAV thực tế (0.15%)
+for b in brokers:
+    b_customers = [c for c in customers if c["broker_id"] == b["id"]]
+    b["fee"]["month3"] = sum(c.get("trade_value", 0) * 0.0015 for c in b_customers)
+# ==============================================================
+
 my_total_cust = len(my_customers)
 my_active_cust = len([c for c in my_customers if c["status"] == "active"])
 my_fee_m1 = current_broker["fee"]["month1"]
 my_fee_m2 = current_broker["fee"]["month2"]
-my_fee_m3 = current_broker["fee"]["month3"]
+my_fee_m3 = current_broker["fee"]["month3"] # Con số này giờ đã tự động nhảy theo Trang QTDM
 
 pct_cust = (my_total_cust / t_cust) * 100
 pct_active = (my_active_cust / t_active) * 100

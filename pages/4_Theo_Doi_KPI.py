@@ -401,3 +401,6 @@ with st.sidebar:
     st.markdown("---")
     st.markdown("**QUẢN TRỊ NỘI DUNG**")
     st.caption("Dữ liệu chỉ tiêu thử việc được áp dụng đồng bộ cho toàn bộ nhân sự theo quy chế tuyển dụng của SSI năm 2026.")
+# Gọi hàm hiển thị chân trang thương hiệu SSI
+from data.mock_data import render_footer
+render_footer()

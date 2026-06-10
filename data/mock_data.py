@@ -154,3 +154,58 @@ def calculate_days_since_trade(last_trade_date: str) -> int:
 
 def is_churn_risk(customer: dict) -> bool:
     return calculate_days_since_trade(customer["last_trade_date"]) > CHURN_THRESHOLD_DAYS
+# ============================================================
+# HÀM HIỂN THỊ CHÂN TRANG (FOOTER) DÙNG CHUNG CHO 6 TRANG
+# ============================================================
+def render_footer():
+    import streamlit as st
+    footer_html = """
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet" />
+    <style>
+    .ssi-custom-footer {
+        background: linear-gradient(to right, #8B0000, #ED1C24);
+        color: #ffffff !important;
+        text-align: center;
+        padding: 20px 15px;
+        font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+        font-size: 13px;
+        line-height: 1.6;
+        border-radius: 6px;
+        margin-top: 50px;
+        width: 100%;
+        box-shadow: 0 -4px 6px -1px rgba(0, 0, 0, 0.1);
+    }
+    .ssi-custom-footer p {
+        margin: 6px 0 !important;
+        color: #ffffff !important;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+    }
+    .ssi-footer-title {
+        font-weight: bold;
+        font-size: 14px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 10px !important;
+    }
+    .ssi-footer-copyright {
+        margin-top: 12px !important;
+        font-size: 11px;
+        opacity: 0.8;
+    }
+    .material-symbols-outlined {
+        font-size: 18px !important;
+        font-weight: 300;
+    }
+    </style>
+    
+    <div class="ssi-custom-footer">
+        <p class="ssi-footer-title">NỀN TẢNG QUẢN TRỊ MÔI GIỚI NỘI BỘ – CÔNG TY CỔ PHẦN CHỨNG KHOÁN SSI</p>
+        <p><span class="material-symbols-outlined">account_balance</span> Cơ quan chủ quản: Trường Đại học Ngân hàng TP.HCM (HUB)</p>
+        <p><span class="material-symbols-outlined">location_on</span> Địa chỉ: 36 Tôn Thất Đạm, phường Sài Gòn, TP.HCM</p>
+        <p class="ssi-footer-copyright">© Copyright HUB & SSI BrokerHub 2026</p>
+    </div>
+    """
+    st.markdown(footer_html, unsafe_allow_html=True)

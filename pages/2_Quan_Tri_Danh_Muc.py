@@ -277,3 +277,6 @@ with tab2:
                 "status": "active", "broker_id": current_broker_id
             })
             st.success("Đã lưu hồ sơ thành công! Mời bạn qua Tab Báo cáo để xem.")
+# Gọi hàm hiển thị chân trang thương hiệu SSI
+from data.mock_data import render_footer
+render_footer()

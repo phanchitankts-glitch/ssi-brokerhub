@@ -363,3 +363,6 @@ with st.sidebar:
 if live_mode:
     time.sleep(15)
     st.rerun()
+# Gọi hàm hiển thị chân trang thương hiệu SSI
+from data.mock_data import render_footer
+render_footer()

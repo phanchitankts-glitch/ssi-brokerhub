@@ -404,3 +404,6 @@ with st.sidebar:
     if st.button("Tải lại Kịch bản Demo", use_container_width=True, type="primary"):
         st.session_state.clear()
         st.rerun()
+# Gọi hàm hiển thị chân trang thương hiệu SSI
+from data.mock_data import render_footer
+render_footer()

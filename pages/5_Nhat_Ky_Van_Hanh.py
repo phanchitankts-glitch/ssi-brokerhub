@@ -262,3 +262,6 @@ else:
             <span style='color: #4B5563;'>{act['note']}</span>
         </div>
         """, unsafe_allow_html=True)
+# Gọi hàm hiển thị chân trang thương hiệu SSI
+from data.mock_data import render_footer
+render_footer()

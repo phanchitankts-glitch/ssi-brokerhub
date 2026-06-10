@@ -331,3 +331,6 @@ with st.sidebar:
     st.markdown("---")
     st.markdown("**QUẢN TRỊ NỘI DUNG**")
     st.caption("Dữ liệu đánh giá được bảo mật tuyệt đối. Điểm số 360 độ sẽ được sử dụng làm cơ sở để xét thưởng cuối quý theo quy định của SSI.")
+# Gọi hàm hiển thị chân trang thương hiệu SSI
+from data.mock_data import render_footer
+render_footer()

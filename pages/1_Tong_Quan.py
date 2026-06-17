@@ -8,7 +8,59 @@ from datetime import date, timedelta
 from sklearn.cluster import KMeans
 from sklearn.svm import SVC
 from streamlit_option_menu import option_menu
+import urllib.request
+import xml.etree.ElementTree as ET
+import re
 
+@st.cache_data(ttl=300) # Cập nhật dữ liệu 5 phút/lần
+def get_live_market_news():
+    url = "https://cafef.vn/thi-troung-chung-khoan.rss"
+    try:
+        req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+        with urllib.request.urlopen(req, timeout=5) as response:
+            xml_data = response.read()
+            
+        root = ET.fromstring(xml_data)
+        news_list = []
+        
+        # Từ điển từ vựng nhận diện tâm lý thị trường chứng khoán Việt Nam
+        pos_keywords = ["tăng", "bứt phá", "lãi", "lợi nhuận", "mua ròng", "vượt đỉnh", "khởi sắc", "hồi phục", "kỷ lục", "tích cực", "bùng nổ", "xanh", "đạt", "hút tiền"]
+        neg_keywords = ["giảm", "lỗ", "sụt giảm", "bán ròng", "lao dốc", "rơi", "tiêu cực", "cắt giảm", "gánh nặng", "áp lực", "đỏ", "đi lùi", "thiệt hại", "bốc hơi"]
+        
+        for item in root.findall('./channel/item')[:15]:
+            title = item.find('title').text
+            link = item.find('link').text
+            pub_date = item.find('pubDate').text 
+            clean_date = pub_date.replace(" +0700", "").replace("GMT", "").strip()
+            
+            # 1. Nhận diện mã cổ phiếu thuộc VN100
+            tickers_found = re.findall(r'\b[A-Z]{3}\b', title)
+            ignore_list = ["VNĐ", "FDI", "GDP", "USD", "HNX", "UBCK", "HOSE", "QTD", "FED", "ETF", "VND"]
+            tags = list(set([t for t in tickers_found if t not in ignore_list]))
+            
+            # 2. Thuật toán phân loại tâm lý Tin tức (Sentiment Classification)
+            title_lower = title.lower()
+            pos_score = sum(1 for w in pos_keywords if w in title_lower)
+            neg_score = sum(1 for w in neg_keywords if w in title_lower)
+            
+            if pos_score > neg_score:
+                sentiment = "positive"
+            elif neg_score > pos_score:
+                sentiment = "negative"
+            else:
+                sentiment = "neutral"
+                
+            news_list.append({
+                "title": title, 
+                "link": link, 
+                "date": clean_date,
+                "tags": tags[:3],
+                "sentiment": sentiment
+            })
+        return news_list
+    except Exception:
+        return None
+    
 st.set_page_config(page_title="Dashboard | SSI BrokerHub", page_icon="assets/logo.png", layout="wide")
 
 # ========================================================
@@ -353,32 +405,95 @@ else:
 
 st.markdown("<hr style='margin-top: 2rem; margin-bottom: 2rem;'>", unsafe_allow_html=True)
 
-# ==========================================
-# SENTIMENT HUB
-# ==========================================
-if show_sentiment:
-    st.markdown("#### Trung tâm cảm xúc thị trường (Sentiment Hub)")
-    col_sent1, col_sent2 = st.columns([1, 2])
-    with col_sent1:
-        with st.container(border=True):
-            st.markdown("**Chỉ báo tâm lý dòng tiền**")
-            st.markdown("<h2 style='color: #10B981; margin-top: 10px; margin-bottom: 0px;'>TÍCH CỰC (74%)</h2>", unsafe_allow_html=True)
-            st.progress(0.74)
-            st.caption("Khối ngoại mua ròng mạnh rổ VN30.")
-    with col_sent2:
-        news_data = pd.DataFrame({
-            "Tin tức nổi bật": [
-                "Ngân hàng Nhà nước duy trì chính sách nới lỏng hỗ trợ thanh khoản.",
-                "Sản lượng thép Hòa Phát (HPG) đạt kỷ lục trong phiên giao dịch tháng 5.",
-                "FPT ký kết hợp đồng AI chiến lược trị giá 50 triệu USD.",
-                "VN-Index tiếp cận vùng kháng cự tâm lý 1,300 điểm."
-            ],
-            "Tác động": ["Tích cực", "Rất tích cực", "Tích cực", "Trung lập"]
-        })
-        st.dataframe(news_data, use_container_width=True, hide_index=True)
+# ==========================================================
+# KHU VỰC 3: TRUNG TÂM CẢM XÚC THỊ TRƯỜNG DỰA TRÊN TIN TỨC REAL-TIME
+# ==========================================================
+st.markdown("### Trung tâm Cảm xúc Thị trường (Sentiment Hub)")
 
-st.markdown("<hr style='margin-top: 1rem; margin-bottom: 2rem;'>", unsafe_allow_html=True)
+# BƯỚC NGOẶT: Load tin tức lên trước để lấy dữ liệu tính toán chỉ số
+with st.spinner("Đang đồng bộ và phân tích tâm lý dòng tin thị trường..."):
+    live_news = get_live_market_news()
 
+# Thuật toán tính toán chỉ số Fear & Greed động từ dữ liệu tin tức
+if live_news:
+    total_pos = sum(1 for n in live_news if n["sentiment"] == "positive")
+    total_neg = sum(1 for n in live_news if n["sentiment"] == "negative")
+    total_rated = total_pos + total_neg
+    
+    if total_rated > 0:
+        # Điểm số bằng tỷ lệ phần trăm tin tốt trên tổng số tin có xu hướng
+        fg_score = int((total_pos / total_rated) * 100)
+    else:
+        fg_score = 50 # Mức cân bằng nếu toàn tin trung lập
+else:
+    fg_score = 50
+    total_pos, total_neg = 0, 0
+
+# Xác định màu sắc và nhãn trạng thái động dựa trên điểm số phân tích tin tức
+if fg_score >= 75:
+    score_color, status_text, desc_text = "#10B981", "THAM LAM TỘT ĐỘ", "Dòng tin tức tràn ngập tín hiệu tích cực và bứt phá của các doanh nghiệp."
+elif fg_score >= 55:
+    score_color, status_text, desc_text = "#10B981", "THAM LAM", "Tâm lý thị trường hưng phấn, lực mua chủ động chiếm ưu thế trên diện rộng."
+elif fg_score >= 45:
+    score_color, status_text, desc_text = "#F59E0B", "CÂN BẰNG", "Tin tức tốt xấu đan xen, thị trường đang tích lũy tìm xu hướng mới."
+elif fg_score >= 25:
+    score_color, status_text, desc_text = "#ED1C24", "SỢ HÃI", "Áp lực bán gia tăng, dòng tin xuất hiện nhiều yếu tố rủi ro điều chỉnh."
+else:
+    score_color, status_text, desc_text = "#ED1C24", "SỢ HÃI TỘT ĐỘ", "Tâm lý bi quan bao trùm khi làn sóng tin tiêu cực xuất hiện liên tục."
+
+# Tiến hành chia cột hiển thị giao diện sau khi đã có dữ liệu chốt
+col_sent1, col_sent2 = st.columns([1, 2])
+
+with col_sent1:
+    with st.container(border=True):
+        st.markdown(" Chỉ số Sợ hãi & Tham lam ")
+        # Gộp chung số và chữ vào một khối div để canh giữa tuyệt đối
+        st.markdown(f"""
+            <div style='text-align: center;'>
+                <h1 style='color: {score_color}; font-size: 6rem; margin-bottom: 0px; line-height: 1.1;'>{fg_score}</h1>
+                <p style='font-weight: bold; color: {score_color}; letter-spacing: 2px; margin-top: -15px;'>{status_text}</p>
+            </div>
+        """, unsafe_allow_html=True)
+        st.progress(fg_score / 100.0)
+        st.caption(f"Phân tích hệ thống: {desc_text}")
+        
+        # Bổ sung thông số thống kê mini dưới đồng hồ tốc độ
+        st.markdown(f"<p style='font-size: 0.8rem; color:#6B7280; text-align:center; margin-top:10px;'>"
+                    f"🟢 Tin tích cực: {total_pos} | 🔴 Tin tiêu cực: {total_neg}"
+                    f"</p>", unsafe_allow_html=True)
+
+with col_sent2:
+    with st.container(border=True):
+        st.markdown("**Tin tức & Biến động Doanh nghiệp (Live 24/7)**")
+        
+        if live_news:
+            html_content = "<div style='height: 250px; overflow-y: auto; padding-right: 15px; font-family: sans-serif;'>"
+            for news in live_news:
+                # Gắn Tag mã cổ phiếu
+                tag_html = ""
+                for tag in news['tags']:
+                    tag_html += f"<span style='background-color: #ED1C24; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.65rem; font-weight: bold; margin-right: 6px;'>{tag}</span>"
+                
+                # Gắn nhãn hiển thị trạng thái tâm lý của riêng tin tức đó ở cuối dòng tin
+                if news['sentiment'] == "positive":
+                    sent_badge = "<span style='color: #10B981; font-size: 0.75rem; font-weight: bold; margin-left: 10px;'>▲ Tích cực</span>"
+                elif news['sentiment'] == "negative":
+                    sent_badge = "<span style='color: #ED1C24; font-size: 0.75rem; font-weight: bold; margin-left: 10px;'>▼ Tiêu cực</span>"
+                else:
+                    sent_badge = ""
+                
+                html_content += f"""
+                    <div style='margin-bottom: 12px; border-bottom: 1px solid #E5E7EB; padding-bottom: 10px;'>
+                        <div style='margin-bottom: 4px;'>{tag_html}</div>
+                        <a href='{news['link']}' target='_blank' style='text-decoration: none; color: #1F2937; font-weight: 600; font-size: 0.95rem; line-height: 1.4; display: inline;'>{news['title']}</a>
+                        {sent_badge}
+                        <span style='color: #9CA3AF; font-size: 0.8rem; margin-top: 4px; display: block;'>🕒 {news['date']}</span>
+                    </div>
+                """
+            html_content += "</div>"
+            st.markdown(html_content, unsafe_allow_html=True)
+        else:
+            st.info("Không có kết nối Internet hoặc nguồn cấp tin tức đang bảo trì.")
 # ==========================================
 # MÁY TÍNH PHÍ 
 # ==========================================

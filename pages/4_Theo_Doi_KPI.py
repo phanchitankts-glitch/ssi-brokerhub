@@ -382,12 +382,24 @@ with col_body1:
         st.markdown("<br>", unsafe_allow_html=True)
         st.markdown("**Lịch sử doanh số phí môi giới qua 3 tháng thử việc**")
         
+        # Hàm đánh giá tự động so với chuẩn KPI
+        def check_fee_status(fee, target):
+            if fee >= target:
+                return "Đạt tiêu chuẩn"
+            else:
+                return "Chưa đạt"
+
         fee_history = {
             "Kỳ đánh giá": ["Tháng thử việc 1", "Tháng thử việc 2", "Tháng thử việc 3 (Hiện tại)"],
             "Doanh số phí thu về (VNĐ)": [f"{my_fee_m1:,.0f}", f"{my_fee_m2:,.0f}", f"{my_fee_m3:,.0f}"],
             "Chuẩn yêu cầu": [f"{t_fee:,.0f}", f"{t_fee:,.0f}", f"{t_fee:,.0f}"],
-            "Kết quả đánh giá": ["Đạt tiêu chuẩn", "Đạt tiêu chuẩn", "Đang thẩm định"]
+            "Kết quả đánh giá": [
+                check_fee_status(my_fee_m1, t_fee), 
+                check_fee_status(my_fee_m2, t_fee), 
+                check_fee_status(my_fee_m3, t_fee)
+            ]
         }
+        
         st.dataframe(pd.DataFrame(fee_history), use_container_width=True, hide_index=True)
 
 with col_body2:

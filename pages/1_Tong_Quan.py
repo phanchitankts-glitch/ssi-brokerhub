@@ -12,7 +12,7 @@ import urllib.request
 import xml.etree.ElementTree as ET
 import re
 
-@st.cache_data(ttl=300) # Cập nhật dữ liệu 5 phút/lần
+@st.cache_data(ttl=300) 
 def get_live_market_news():
     url = "https://cafef.vn/thi-troung-chung-khoan.rss"
     try:
@@ -23,7 +23,6 @@ def get_live_market_news():
         root = ET.fromstring(xml_data)
         news_list = []
         
-        # Từ điển từ vựng nhận diện tâm lý thị trường chứng khoán Việt Nam
         pos_keywords = ["tăng", "bứt phá", "lãi", "lợi nhuận", "mua ròng", "vượt đỉnh", "khởi sắc", "hồi phục", "kỷ lục", "tích cực", "bùng nổ", "xanh", "đạt", "hút tiền"]
         neg_keywords = ["giảm", "lỗ", "sụt giảm", "bán ròng", "lao dốc", "rơi", "tiêu cực", "cắt giảm", "gánh nặng", "áp lực", "đỏ", "đi lùi", "thiệt hại", "bốc hơi"]
         
@@ -33,12 +32,10 @@ def get_live_market_news():
             pub_date = item.find('pubDate').text 
             clean_date = pub_date.replace(" +0700", "").replace("GMT", "").strip()
             
-            # 1. Nhận diện mã cổ phiếu thuộc VN100
             tickers_found = re.findall(r'\b[A-Z]{3}\b', title)
             ignore_list = ["VNĐ", "FDI", "GDP", "USD", "HNX", "UBCK", "HOSE", "QTD", "FED", "ETF", "VND"]
             tags = list(set([t for t in tickers_found if t not in ignore_list]))
             
-            # 2. Thuật toán phân loại tâm lý Tin tức (Sentiment Classification)
             title_lower = title.lower()
             pos_score = sum(1 for w in pos_keywords if w in title_lower)
             neg_score = sum(1 for w in neg_keywords if w in title_lower)
@@ -63,28 +60,18 @@ def get_live_market_news():
     
 st.set_page_config(page_title="Dashboard | SSI BrokerHub", page_icon="assets/logo.png", layout="wide")
 
-# ========================================================
-# KIỂM TRA ĐĂNG NHẬP
-# ========================================================
 if "initialized" not in st.session_state or getattr(st.session_state, 'logged_in', False) == False:
     st.warning("Vui lòng quay lại trang chủ để đăng nhập.")
     st.stop()
 
-# ========================================================
-# LẤY DỮ LIỆU TỪ HỆ THỐNG CHUNG (Có cơ chế chống lỗi)
-# ========================================================
 customers = st.session_state.get("customers", [])
 brokers = st.session_state.get("brokers", [])
 kpi_targets = st.session_state.get("kpi_targets", {"customers": 20, "active_accounts": 10, "monthly_fee": 6000000})
 fee_rates = st.session_state.get("fee_rates", {"min": 0.0015, "default": 0.0015, "max": 0.0025})
 demo_date = st.session_state.get("demo_date", date.today())
 current_user_id = st.session_state.current_broker_id
-current_user = next((b for b in brokers if b["id"] == current_user_id), {"name": "Cán bộ SSI", "fee": {"month3": 0}})
+current_user = next((b for b in brokers if b["id"] == current_user_id), {"name": "Cán bộ SSI", "emp_code": "SSI-UNKNOWN", "fee": {"month3": 0}})
 
-# ----------------------------------------------------
-# BỘ MÁY TÍNH NAV ĐỘNG NGAY TẠI TRANG TỔNG QUAN
-# (Fix lỗi NAV = 0 khi broker mới vừa đăng nhập vào)
-# ----------------------------------------------------
 for c in customers:
     total_cost = 0
     total_nav = 0
@@ -103,11 +90,7 @@ for c in customers:
     if total_cost > 0:
         c["trade_value"] = total_nav
         c["profit_margin"] = ((total_nav - total_cost) / total_cost) * 100
-# ----------------------------------------------------
 
-# ========================================================
-# --- THANH TIỆN ÍCH ĐỘNG (THÔNG BÁO, CHAT, PROFILE) ---
-# ========================================================
 if "notifications" not in st.session_state:
     st.session_state.notifications = [
         {"id": 1, "text": "Phòng QTRR: Rà soát danh mục margin", "done": False},
@@ -182,7 +165,7 @@ with col_chat:
 with col_profile:
     with st.popover(current_user['name'], icon=":material/person_outline:"):
         st.markdown(f"**{current_user['name']}**")
-        st.caption("Trạng thái: Đang hoạt động 🟢")
+        st.markdown(f"<span style='background-color:#E5E7EB; color:#374151; padding:2px 8px; border-radius:12px; font-size:11px; font-weight:bold;'>{current_user.get('emp_code', '')}</span>", unsafe_allow_html=True)
         st.divider()
         if st.button("Xóa hộp thư đến", use_container_width=True):
             st.session_state.chat_messages = [m for m in st.session_state.chat_messages if m["to"] != current_user["name"]]
@@ -192,9 +175,6 @@ with col_profile:
             st.session_state.current_broker_id = None
             st.switch_page("app.py")
 
-# ========================================================
-# --- TẠO MENU NGANG TRÊN CÙNG (TOP NAVIGATION) ---
-# ========================================================
 def get_base64_image(image_path):
     try:
         with open(image_path, "rb") as img_file:
@@ -231,11 +211,8 @@ selected = option_menu(
 pages_dict = {"Tổng Quan": "pages/1_Tong_Quan.py", "Quản Trị Danh Mục": "pages/2_Quan_Tri_Danh_Muc.py", "Khuyến Nghị Đầu Tư": "pages/3_Khuyen_Nghi_Dau_Tu.py", "Theo Dõi KPI": "pages/4_Theo_Doi_KPI.py", "Nhật Ký Vận Hành": "pages/5_Nhat_Ky_Van_Hanh.py", "Đánh Giá Nội Bộ": "pages/6_Danh_Gia_Noi_Bo.py"}
 if pages_dict[selected] != "pages/1_Tong_Quan.py": st.switch_page(pages_dict[selected])
 
-# ==========================================
-# KHU VỰC NGHIỆP VỤ - DASHBOARD CÁ NHÂN
-# ==========================================
 st.markdown("<h2 style='color: #000000; margin-bottom: 0px;'>Dashboard Tổng Quan KPI</h2>", unsafe_allow_html=True)
-st.markdown(f"<p style='color: #6B7280; font-size: 1rem;'>Hệ thống quản trị và phân tích dữ liệu đa chiều của Môi giới: <b>{current_user['name']}</b></p>", unsafe_allow_html=True)
+st.markdown(f"<p style='color: #6B7280; font-size: 1rem;'>Hệ thống quản trị và phân tích dữ liệu đa chiều của Môi giới: <b>{current_user['name']} ({current_user.get('emp_code', '')})</b></p>", unsafe_allow_html=True)
 
 with st.expander("Tùy chỉnh cấu hình vùng làm việc", expanded=False):
     col_set1, col_set2, col_set3, col_set4 = st.columns(4)
@@ -246,15 +223,11 @@ with st.expander("Tùy chỉnh cấu hình vùng làm việc", expanded=False):
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# --- BỘ LỌC DỮ LIỆU CHỈ DÀNH CHO CÁ NHÂN BROKER ĐANG ĐĂNG NHẬP ---
 my_customers = [c for c in customers if c["broker_id"] == current_user_id]
 my_total_customers = len(my_customers)
 my_active_accounts = len([c for c in my_customers if c["status"] == "active"])
 my_monthly_fee = current_user.get("fee", {}).get("month3", 0)
 
-# ==========================================
-# TRUNG TÂM CẢNH BÁO RỦI RO (Alert Center)
-# ==========================================
 st.markdown("#### Trung tâm cảnh báo rủi ro danh mục")
 risk_customers = [c for c in my_customers if c.get("profit_margin", 0) < -5.0]
 
@@ -266,9 +239,6 @@ else:
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# ==========================================
-# PHẦN KPI CHÍNH (ĐÁNH GIÁ CÁ NHÂN THEO ĐỀ BÀI)
-# ==========================================
 kpi_cust_passed = my_total_customers >= kpi_targets["customers"]
 kpi_active_passed = my_active_accounts >= kpi_targets["active_accounts"]
 kpi_fee_passed = my_monthly_fee >= kpi_targets["monthly_fee"]
@@ -297,9 +267,6 @@ with col_kpi3:
 
 st.markdown("<hr style='margin-top: 2rem; margin-bottom: 2rem;'>", unsafe_allow_html=True)
 
-# ==========================================
-# BIỂU ĐỒ TRỰC QUAN & RADAR NĂNG LỰC
-# ==========================================
 if show_charts or show_radar:
     col_layout1, col_layout2 = st.columns([1, 1])
     
@@ -318,7 +285,8 @@ if show_charts or show_radar:
             
     with col_layout2:
         if show_radar:
-            st.markdown("**Mô hình định vị năng lực (Radar Chart)**")
+            # LƯỢC BỎ TIẾNG ANH: (Radar Chart)
+            st.markdown("**Mô hình định vị năng lực**")
             radar_metrics = ['Doanh số phí', 'Tìm kiếm KH mới', 'Giữ chân khách hàng', 'Hiệu suất tư vấn', 'S-Products']
             fig_radar = go.Figure()
             
@@ -341,7 +309,6 @@ if show_charts or show_radar:
 
     st.markdown("<hr style='margin-top: 1rem; margin-bottom: 2rem;'>", unsafe_allow_html=True)
 
-# ----------------- MODULE AI ENGINE (Chạy ngầm) -----------------
 df_ai = pd.DataFrame(customers)
 if not df_ai.empty:
     try:
@@ -365,30 +332,25 @@ if not df_ai.empty:
         ai_results = {}
 else:
     ai_results = {}
-# ---------------------------------------------------------------
 
-# ==========================================
-# INTERACTIVE DATA GRID (SIÊU LƯỚI CÁ NHÂN)
-# ==========================================
-st.markdown("#### Quản lý danh sách khách hàng của bạn (Interactive Grid)")
+# LƯỢC BỎ TIẾNG ANH: (Interactive Grid)
+st.markdown("#### Quản lý danh sách khách hàng của bạn")
 df_grid = pd.DataFrame(my_customers)
 
 if not df_grid.empty and ai_results:
-    # Lấy ngày hiện tại (năm nay 2026)
     today_date = date.today()
     
     df_grid['Phân nhóm AI'] = df_grid['id'].apply(lambda x: ai_results.get(x, {}).get('kmeans_segment', 'N/A'))
     df_grid['Rủi ro Churn'] = df_grid['id'].apply(lambda x: f"{ai_results.get(x, {}).get('svm_prob', 0)}%")
     df_grid['Ngày ngưng GD'] = df_grid['id'].apply(lambda x: ai_results.get(x, {}).get('days_inactive', 0))
     
-    # --- CẬP NHẬT: 'last_trade_date' (GD Cuối) sát với thời gian thực tế hiện tại năm 2026 ---
     df_grid['last_trade_date'] = df_grid['Ngày ngưng GD'].apply(lambda x: (today_date - timedelta(days=x)).strftime('%Y-%m-%d'))
     
     st.dataframe(
         df_grid[['name', 'phone', 'last_trade_date', 'Ngày ngưng GD', 'trade_value', 'profit_margin', 'Phân nhóm AI', 'Rủi ro Churn', 'status']],
         column_config={
             "name": "Khách hàng",
-            "phone": "Số điện thoại", # CẬP NHẬT: Đổi từ phone thành "Số điện thoại"
+            "phone": "Số điện thoại", 
             "last_trade_date": "GD Cuối",
             "Ngày ngưng GD": st.column_config.NumberColumn("Ngưng GD", format="%d ngày"),
             "trade_value": st.column_config.NumberColumn("NAV (VNĐ)", format="%d"),
@@ -405,31 +367,25 @@ else:
 
 st.markdown("<hr style='margin-top: 2rem; margin-bottom: 2rem;'>", unsafe_allow_html=True)
 
-# ==========================================================
-# KHU VỰC 3: TRUNG TÂM CẢM XÚC THỊ TRƯỜNG DỰA TRÊN TIN TỨC REAL-TIME
-# ==========================================================
-st.markdown("### Trung tâm Cảm xúc Thị trường (Sentiment Hub)")
+# LƯỢC BỎ TIẾNG ANH: (Sentiment Hub)
+st.markdown("### Trung tâm Cảm xúc Thị trường")
 
-# BƯỚC NGOẶT: Load tin tức lên trước để lấy dữ liệu tính toán chỉ số
 with st.spinner("Đang đồng bộ và phân tích tâm lý dòng tin thị trường..."):
     live_news = get_live_market_news()
 
-# Thuật toán tính toán chỉ số Fear & Greed động từ dữ liệu tin tức
 if live_news:
     total_pos = sum(1 for n in live_news if n["sentiment"] == "positive")
     total_neg = sum(1 for n in live_news if n["sentiment"] == "negative")
     total_rated = total_pos + total_neg
     
     if total_rated > 0:
-        # Điểm số bằng tỷ lệ phần trăm tin tốt trên tổng số tin có xu hướng
         fg_score = int((total_pos / total_rated) * 100)
     else:
-        fg_score = 50 # Mức cân bằng nếu toàn tin trung lập
+        fg_score = 50 
 else:
     fg_score = 50
     total_pos, total_neg = 0, 0
 
-# Xác định màu sắc và nhãn trạng thái động dựa trên điểm số phân tích tin tức
 if fg_score >= 75:
     score_color, status_text, desc_text = "#10B981", "THAM LAM TỘT ĐỘ", "Dòng tin tức tràn ngập tín hiệu tích cực và bứt phá của các doanh nghiệp."
 elif fg_score >= 55:
@@ -441,13 +397,11 @@ elif fg_score >= 25:
 else:
     score_color, status_text, desc_text = "#ED1C24", "SỢ HÃI TỘT ĐỘ", "Tâm lý bi quan bao trùm khi làn sóng tin tiêu cực xuất hiện liên tục."
 
-# Tiến hành chia cột hiển thị giao diện sau khi đã có dữ liệu chốt
 col_sent1, col_sent2 = st.columns([1, 2])
 
 with col_sent1:
     with st.container(border=True):
         st.markdown(" Chỉ số Sợ hãi & Tham lam ")
-        # Gộp chung số và chữ vào một khối div để canh giữa tuyệt đối
         st.markdown(f"""
             <div style='text-align: center;'>
                 <h1 style='color: {score_color}; font-size: 6rem; margin-bottom: 0px; line-height: 1.1;'>{fg_score}</h1>
@@ -457,7 +411,6 @@ with col_sent1:
         st.progress(fg_score / 100.0)
         st.caption(f"Phân tích hệ thống: {desc_text}")
         
-        # Bổ sung thông số thống kê mini dưới đồng hồ tốc độ
         st.markdown(f"<p style='font-size: 0.8rem; color:#6B7280; text-align:center; margin-top:10px;'>"
                     f"🟢 Tin tích cực: {total_pos} | 🔴 Tin tiêu cực: {total_neg}"
                     f"</p>", unsafe_allow_html=True)
@@ -469,12 +422,10 @@ with col_sent2:
         if live_news:
             html_content = "<div style='height: 250px; overflow-y: auto; padding-right: 15px; font-family: sans-serif;'>"
             for news in live_news:
-                # Gắn Tag mã cổ phiếu
                 tag_html = ""
                 for tag in news['tags']:
                     tag_html += f"<span style='background-color: #ED1C24; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.65rem; font-weight: bold; margin-right: 6px;'>{tag}</span>"
                 
-                # Gắn nhãn hiển thị trạng thái tâm lý của riêng tin tức đó ở cuối dòng tin
                 if news['sentiment'] == "positive":
                     sent_badge = "<span style='color: #10B981; font-size: 0.75rem; font-weight: bold; margin-left: 10px;'>▲ Tích cực</span>"
                 elif news['sentiment'] == "negative":
@@ -494,9 +445,7 @@ with col_sent2:
             st.markdown(html_content, unsafe_allow_html=True)
         else:
             st.info("Không có kết nối Internet hoặc nguồn cấp tin tức đang bảo trì.")
-# ==========================================
-# MÁY TÍNH PHÍ 
-# ==========================================
+
 if show_calculator:
     st.markdown("#### Mô hình ước tính doanh số chốt lệnh")
     missing_fee = max(0, kpi_targets['monthly_fee'] - my_monthly_fee)
@@ -519,6 +468,6 @@ with st.sidebar:
     if st.button("Tải lại Kịch bản Demo", use_container_width=True, type="primary"):
         st.session_state.clear()
         st.rerun()
-# Gọi hàm hiển thị chân trang thương hiệu SSI
+
 from data.mock_data import render_footer
 render_footer()

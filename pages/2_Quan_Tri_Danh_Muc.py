@@ -281,7 +281,7 @@ with tab2:
         st.caption("Khách hàng sẽ được tự động định giá theo biến động thị trường thực tế.")
 
     st.markdown("---")
-    st.markdown("**Bước tiếp theo: Thêm mã cổ phiếu vào giỏ danh mục của khách**")
+    st.markdown("**Thêm mã cổ phiếu vào giỏ danh mục của khách**")
     
     sc1, sc2, sc3 = st.columns([2, 1.5, 1])
     with sc1:

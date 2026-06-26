@@ -1,6 +1,7 @@
 import streamlit as st
 import datetime
 import base64
+import pandas as pd
 from streamlit_option_menu import option_menu
 
 st.set_page_config(page_title="Nhật ký | SSI BrokerHub", page_icon="assets/logo.png", layout="wide")
@@ -8,10 +9,7 @@ st.set_page_config(page_title="Nhật ký | SSI BrokerHub", page_icon="assets/lo
 if "initialized" not in st.session_state or not st.session_state.logged_in:
     st.warning("Vui lòng quay lại trang chủ để đăng nhập.")
     st.stop()
-# ========================================================
-# --- THANH TIỆN ÍCH ĐỘNG (THÔNG BÁO, CHAT, PROFILE) ---
-# ========================================================
-# 1. Khởi tạo dữ liệu ảo (Session State) cho thông báo và tin nhắn
+
 if "notifications" not in st.session_state:
     st.session_state.notifications = [
         {"id": 1, "text": "Phòng QTRR: Rà soát danh mục margin", "done": False},
@@ -20,11 +18,9 @@ if "notifications" not in st.session_state:
 if "chat_messages" not in st.session_state:
     st.session_state.chat_messages = []
 
-# Lấy thông tin tài khoản đang đăng nhập
 current_user_id = st.session_state.current_broker_id
-current_user = next((b for b in st.session_state.brokers if b["id"] == current_user_id), {"name": "Cán bộ SSI"})
+current_user = next((b for b in st.session_state.brokers if b["id"] == current_user_id), {"name": "Cán bộ SSI", "emp_code": "SSI-UNKNOWN"})
 
-# 2. Tinh chỉnh CSS để icon trong suốt và ÉP KHOẢNG CÁCH SÁT XUỐNG MENU ĐỎ
 st.markdown("""
     <style>
     div[data-testid="stPopover"] > button {
@@ -37,7 +33,7 @@ st.markdown("""
         font-size: 14px;
         border-radius: 6px;
         height: 38px;
-        margin-bottom: -15px; /* Kéo xích nút bấm lại gần thanh menu đỏ */
+        margin-bottom: -15px; 
     }
     div[data-testid="stPopover"] > button:hover {
         color: #ED1C24 !important; 
@@ -47,18 +43,14 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# 3. ĐẾM SỐ LƯỢNG CHƯA ĐỌC ĐỂ HIỂN THỊ BADGE (1), (2)...
 unread_notifs = len([n for n in st.session_state.notifications if not n["done"]])
 notif_label = f"Thông báo ({unread_notifs})" if unread_notifs > 0 else "Thông báo"
 
-# Đếm số tin nhắn người khác gửi đích danh cho mình
 unread_msgs = len([m for m in st.session_state.chat_messages if m["to"] == current_user["name"]])
 msg_label = f"Tin nhắn ({unread_msgs})" if unread_msgs > 0 else "Tin nhắn"
 
-# 4. Dàn trang Thanh tiện ích nằm gọn ở góc phải (Căn lề sát nhau)
 col_space, col_notif, col_chat, col_profile = st.columns([5.3, 1.7, 1.5, 2.5])
 
-# ---- Ô THÔNG BÁO ----
 with col_notif:
     with st.popover(notif_label, icon=":material/notifications_none:"):
         st.markdown("**Thông báo hệ thống**")
@@ -71,7 +63,6 @@ with col_notif:
                     notif["done"] = True
                     st.rerun()
 
-# ---- Ô TIN NHẮN ----
 with col_chat:
     with st.popover(msg_label, icon=":material/chat_bubble_outline:"):
         st.markdown("**Trao đổi nội bộ**")
@@ -101,14 +92,12 @@ with col_chat:
                 st.session_state.chat_messages.append({"from": current_user["name"], "to": chat_target, "msg": new_msg})
                 st.rerun()
 
-# ---- Ô TÀI KHOẢN / ĐĂNG XUẤT ----
 with col_profile:
     with st.popover(current_user['name'], icon=":material/person_outline:"):
         st.markdown(f"**{current_user['name']}**")
         st.caption("Trạng thái: Đang hoạt động 🟢")
         st.divider()
         
-        # Nút xóa lịch sử tin nhắn (để reset số đếm thông báo nếu muốn)
         if st.button("Xóa hộp thư đến", use_container_width=True):
             st.session_state.chat_messages = [m for m in st.session_state.chat_messages if m["to"] != current_user["name"]]
             st.rerun()
@@ -118,9 +107,6 @@ with col_profile:
             st.session_state.current_broker_id = None
             st.switch_page("app.py")
 
-# ========================================================
-# --- ĐỌC LOGO TỪ FILE LOCAL & MÃ HÓA BASE64 ---
-# ========================================================
 def get_base64_image(image_path):
     try:
         with open(image_path, "rb") as img_file:
@@ -134,9 +120,6 @@ if logo_b64:
 else:
     bg_style = "linear-gradient(to right, #8B0000, #ED1C24)"
 
-# ========================================================
-# --- TẠO MENU NGANG TRÊN CÙNG (TOP NAVIGATION) CHUẨN SSI ---
-# ========================================================
 st.markdown("""
     <style>
         .block-container { padding-top: 1rem !important; padding-bottom: 0rem !important; }
@@ -150,7 +133,7 @@ selected = option_menu(
     menu_title=None,
     options=["Tổng Quan", "Quản Trị Danh Mục", "Khuyến Nghị Đầu Tư", "Theo Dõi KPI", "Nhật Ký Vận Hành", "Đánh Giá Nội Bộ"],
     icons=["house", "briefcase", "graph-up-arrow", "bar-chart", "journal-text", "clipboard-check"],
-    default_index=4, # <--- Vị trí thứ 5 (Nhật Ký Vận Hành)
+    default_index=4, 
     orientation="horizontal",
     styles={
         "container": {
@@ -217,51 +200,73 @@ pages_dict = {
 if pages_dict[selected] != "pages/5_Nhat_Ky_Van_Hanh.py":
     st.switch_page(pages_dict[selected])
 
-# ==========================================
-# KHU VỰC NGHIỆP VỤ 
-# ==========================================
 current_broker_id = st.session_state.current_broker_id
-st.markdown("<h2 style='color: #111827; margin-bottom: 0;'>Nhật ký Vận hành (Audit Log)</h2>", unsafe_allow_html=True)
-st.caption("Ghi nhận mọi hoạt động tương tác với khách hàng của cán bộ môi giới.")
+# LƯỢC BỎ TIẾNG ANH: (Audit Log)
+st.markdown(f"<h2 style='color: #111827; margin-bottom: 0;'>Nhật ký Vận hành - {current_user.get('emp_code', '')}</h2>", unsafe_allow_html=True)
+st.caption("Ghi nhận mọi hoạt động tương tác với khách hàng của cán bộ môi giới. Dữ liệu được dùng làm cơ sở minh bạch hóa KPI.")
 
-# Form nhập liệu
+label_map = {"call": "Gọi điện thoại", "meet": "Gặp mặt", "report": "Gửi báo cáo", "trade": "Hỗ trợ lệnh", "open": "Mở tài khoản"}
+
 with st.container(border=True):
     my_customers = [c for c in st.session_state.customers if c["broker_id"] == current_broker_id]
     customer_dict = {c["id"]: c["name"] for c in my_customers}
     
     c1, c2 = st.columns([1, 2])
     with c1:
-        label_map = {"call": "Gọi điện thoại", "meet": "Gặp mặt", "report": "Gửi báo cáo", "trade": "Hỗ trợ lệnh", "open": "Mở tài khoản"}
         act_type = st.selectbox("Nghiệp vụ", ["call", "meet", "report", "trade", "open"], format_func=lambda x: label_map[x])
-        act_cus = st.selectbox("Khách hàng", options=[None] + list(customer_dict.keys()), format_func=lambda x: customer_dict[x] if x else "Chung")
+        act_cus = st.selectbox("Khách hàng", options=[None] + list(customer_dict.keys()), format_func=lambda x: customer_dict[x] if x else "Chung (Chưa định danh)")
     with c2:
         act_note = st.text_area("Ghi chú chi tiết kết quả", height=115)
         
     if st.button("Lưu biên bản", type="primary"):
         new_act = {
             "id": max([a["id"] for a in st.session_state.activities]) + 1 if st.session_state.activities else 1,
-            "broker_id": current_broker_id, "customer_id": act_cus,
-            "type": act_type, "note": act_note,
+            "broker_id": current_broker_id, 
+            "customer_id": act_cus,
+            "type": act_type, 
+            "note": act_note,
             "date": datetime.datetime.now().isoformat()[:19]
         }
         st.session_state.activities.append(new_act)
         st.success("Đã ghi nhận dữ liệu vào hệ thống!")
         st.rerun()
 
-st.markdown("##### 🕒 Dòng thời gian gần đây")
+st.markdown("##### Bảng dữ liệu Lịch sử tương tác")
 my_acts = sorted([a for a in st.session_state.activities if a["broker_id"] == current_broker_id], key=lambda x: x["date"], reverse=True)
 
 if not my_acts:
     st.info("Chưa có hoạt động nào được ghi nhận.")
 else:
+    table_data = []
     for act in my_acts:
         cus_name = next((c["name"] for c in st.session_state.customers if c["id"] == act["customer_id"]), "Khách hàng chung")
-        st.markdown(f"""
-        <div style='background-color: white; padding: 15px; border-radius: 8px; border-left: 4px solid #ED1C24; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 10px;'>
-            <b>{label_map.get(act['type'])}</b> với <b>{cus_name}</b> <span style='color: gray; font-size: 0.8rem;'>({act['date'].replace('T', ' ')})</span><br>
-            <span style='color: #4B5563;'>{act['note']}</span>
-        </div>
-        """, unsafe_allow_html=True)
-# Gọi hàm hiển thị chân trang thương hiệu SSI
-from data.mock_data import render_footer
-render_footer()
+        formatted_date = act["date"].replace("T", " ")
+        
+        table_data.append({
+            "Thời gian": formatted_date,
+            "Mã NV Thực hiện": current_user.get("emp_code", "SSI-UNKNOWN"), 
+            "Khách hàng": cus_name,
+            "Nghiệp vụ": label_map.get(act["type"], "Khác"),
+            "Chi tiết công việc": act["note"]
+        })
+        
+    df_activities = pd.DataFrame(table_data)
+    
+    st.dataframe(
+        df_activities,
+        column_config={
+            "Thời gian": st.column_config.TextColumn("Thời gian", width="medium"),
+            "Mã NV Thực hiện": st.column_config.TextColumn("Mã NV Thực hiện", width="small"),
+            "Khách hàng": st.column_config.TextColumn("Khách hàng", width="medium"),
+            "Nghiệp vụ": st.column_config.TextColumn("Nghiệp vụ", width="small"),
+            "Chi tiết công việc": st.column_config.TextColumn("Chi tiết công việc", width="large"),
+        },
+        use_container_width=True,
+        hide_index=True
+    )
+
+try:
+    from data.mock_data import render_footer
+    render_footer()
+except Exception:
+    pass

@@ -2,8 +2,6 @@ import streamlit as st
 import pandas as pd
 import base64
 from streamlit_option_menu import option_menu
-
-# THÊM THƯ VIỆN VẼ BIỂU ĐỒ
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
@@ -12,10 +10,7 @@ st.set_page_config(page_title="KPI Cá Nhân | SSI BrokerHub", page_icon="assets
 if "initialized" not in st.session_state or not st.session_state.logged_in:
     st.warning("Yêu cầu xác thực. Vui lòng quay lại trang chủ để đăng nhập hệ thống.")
     st.stop()
-# ========================================================
-# --- THANH TIỆN ÍCH ĐỘNG (THÔNG BÁO, CHAT, PROFILE) ---
-# ========================================================
-# 1. Khởi tạo dữ liệu ảo (Session State) cho thông báo và tin nhắn
+
 if "notifications" not in st.session_state:
     st.session_state.notifications = [
         {"id": 1, "text": "Phòng QTRR: Rà soát danh mục margin", "done": False},
@@ -24,11 +19,9 @@ if "notifications" not in st.session_state:
 if "chat_messages" not in st.session_state:
     st.session_state.chat_messages = []
 
-# Lấy thông tin tài khoản đang đăng nhập
 current_user_id = st.session_state.current_broker_id
-current_user = next((b for b in st.session_state.brokers if b["id"] == current_user_id), {"name": "Cán bộ SSI"})
+current_user = next((b for b in st.session_state.brokers if b["id"] == current_user_id), {"name": "Cán bộ SSI", "emp_code": "SSI-UNKNOWN"})
 
-# 2. Tinh chỉnh CSS để icon trong suốt và ÉP KHOẢNG CÁCH SÁT XUỐNG MENU ĐỎ
 st.markdown("""
     <style>
     div[data-testid="stPopover"] > button {
@@ -41,7 +34,7 @@ st.markdown("""
         font-size: 14px;
         border-radius: 6px;
         height: 38px;
-        margin-bottom: -15px; /* Kéo xích nút bấm lại gần thanh menu đỏ */
+        margin-bottom: -15px; 
     }
     div[data-testid="stPopover"] > button:hover {
         color: #ED1C24 !important; 
@@ -51,18 +44,14 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# 3. ĐẾM SỐ LƯỢNG CHƯA ĐỌC ĐỂ HIỂN THỊ BADGE (1), (2)...
 unread_notifs = len([n for n in st.session_state.notifications if not n["done"]])
 notif_label = f"Thông báo ({unread_notifs})" if unread_notifs > 0 else "Thông báo"
 
-# Đếm số tin nhắn người khác gửi đích danh cho mình
 unread_msgs = len([m for m in st.session_state.chat_messages if m["to"] == current_user["name"]])
 msg_label = f"Tin nhắn ({unread_msgs})" if unread_msgs > 0 else "Tin nhắn"
 
-# 4. Dàn trang Thanh tiện ích nằm gọn ở góc phải (Căn lề sát nhau)
 col_space, col_notif, col_chat, col_profile = st.columns([5.3, 1.7, 1.5, 2.5])
 
-# ---- Ô THÔNG BÁO ----
 with col_notif:
     with st.popover(notif_label, icon=":material/notifications_none:"):
         st.markdown("**Thông báo hệ thống**")
@@ -75,7 +64,6 @@ with col_notif:
                     notif["done"] = True
                     st.rerun()
 
-# ---- Ô TIN NHẮN ----
 with col_chat:
     with st.popover(msg_label, icon=":material/chat_bubble_outline:"):
         st.markdown("**Trao đổi nội bộ**")
@@ -105,14 +93,12 @@ with col_chat:
                 st.session_state.chat_messages.append({"from": current_user["name"], "to": chat_target, "msg": new_msg})
                 st.rerun()
 
-# ---- Ô TÀI KHOẢN / ĐĂNG XUẤT ----
 with col_profile:
     with st.popover(current_user['name'], icon=":material/person_outline:"):
         st.markdown(f"**{current_user['name']}**")
         st.caption("Trạng thái: Đang hoạt động 🟢")
         st.divider()
         
-        # Nút xóa lịch sử tin nhắn (để reset số đếm thông báo nếu muốn)
         if st.button("Xóa hộp thư đến", use_container_width=True):
             st.session_state.chat_messages = [m for m in st.session_state.chat_messages if m["to"] != current_user["name"]]
             st.rerun()
@@ -122,11 +108,6 @@ with col_profile:
             st.session_state.current_broker_id = None
             st.switch_page("app.py")
 
-# ========================================================
-
-# ========================================================
-# --- ĐỌC LOGO TỪ FILE LOCAL & MÃ HÓA BASE64 ---
-# ========================================================
 def get_base64_image(image_path):
     try:
         with open(image_path, "rb") as img_file:
@@ -140,9 +121,6 @@ if logo_b64:
 else:
     bg_style = "linear-gradient(to right, #8B0000, #ED1C24)"
 
-# ========================================================
-# --- TẠO MENU NGANG TRÊN CÙNG (TOP NAVIGATION) CHUẨN SSI ---
-# ========================================================
 st.markdown("""
     <style>
         .block-container { padding-top: 1rem !important; padding-bottom: 0rem !important; }
@@ -156,7 +134,7 @@ selected = option_menu(
     menu_title=None,
     options=["Tổng Quan", "Quản Trị Danh Mục", "Khuyến Nghị Đầu Tư", "Theo Dõi KPI", "Nhật Ký Vận Hành", "Đánh Giá Nội Bộ"],
     icons=["house", "briefcase", "graph-up-arrow", "bar-chart", "journal-text", "clipboard-check"],
-    default_index=3, # <--- Vị trí thứ 4 (Theo dõi KPI)
+    default_index=3, 
     orientation="horizontal",
     styles={
         "container": {
@@ -223,9 +201,6 @@ pages_dict = {
 if pages_dict[selected] != "pages/4_Theo_Doi_KPI.py":
     st.switch_page(pages_dict[selected])
 
-# ==========================================
-# KHU VỰC NGHIỆP VỤ 
-# ==========================================
 current_broker_id = st.session_state.current_broker_id
 brokers = st.session_state.brokers
 customers = st.session_state.customers
@@ -242,11 +217,7 @@ t_cust = 20
 t_active = 10        
 t_fee = 6000000      
 
-# ==============================================================
-# BỔ SUNG: LIÊN KẾT DỮ LIỆU ĐỘNG TỪ TRANG QTDM SANG KPI
-# ==============================================================
-# 1. Tính toán lại NAV động dựa trên giá cổ phiếu để đồng bộ với Trang 2
-my_total_aum = 0  # Biến lưu tổng AUM để vẽ biểu đồ
+my_total_aum = 0  
 for c in customers:
     total_cost = 0
     total_nav = 0
@@ -269,34 +240,28 @@ for c in customers:
     if c["broker_id"] == current_broker_id:
         my_total_aum += total_nav
 
-# 2. Cập nhật Doanh số phí (Tháng 3) cho tất cả Broker dựa trên NAV thực tế (0.15%)
 for b in brokers:
     b_customers = [c for c in customers if c["broker_id"] == b["id"]]
     b["fee"]["month3"] = sum(c.get("trade_value", 0) * 0.0015 for c in b_customers)
-# ==============================================================
 
 my_total_cust = len(my_customers)
 my_active_cust = len([c for c in my_customers if c["status"] == "active"])
 my_fee_m1 = current_broker["fee"]["month1"]
 my_fee_m2 = current_broker["fee"]["month2"]
-my_fee_m3 = current_broker["fee"]["month3"] # Con số này giờ đã tự động nhảy theo Trang QTDM
+my_fee_m3 = current_broker["fee"]["month3"] 
 
 pct_cust = (my_total_cust / t_cust) * 100
 pct_active = (my_active_cust / t_active) * 100
 pct_fee = (my_fee_m3 / t_fee) * 100
 
-# ==============================================================
-# KHU VỰC VẼ BIỂU ĐỒ TRỰC QUAN (CHÈN MỚI THEO Ý TƯỞNG CỦA TECH LEAD)
-# ==============================================================
-st.markdown("### 📊 Báo cáo trực quan: Phễu chuyển đổi & Tăng trưởng")
+st.markdown("### Báo cáo trực quan: Phễu chuyển đổi & Tăng trưởng")
 col_chart1, col_chart2 = st.columns([1, 1.4])
 
-# 1. BIỂU ĐỒ PHỄU KHÁCH HÀNG (FUNNEL CHART) DỮ LIỆU ĐỘNG
 with col_chart1:
     with st.container(border=True):
-        st.markdown("**1. Tỷ lệ chuyển đổi Khách hàng (Conversion Funnel)**")
+        # LƯỢC BỎ TIẾNG ANH: (Conversion Funnel)
+        st.markdown("**1. Tỷ lệ chuyển đổi Khách hàng**")
         
-        # Mô phỏng tập Leads gấp 3 lần số tài khoản hiện có để ra hình phễu
         stages = ["Lead tiềm năng", "Mở tài khoản (eKYC)", "Active (Đã nạp tiền & GD)"]
         values = [my_total_cust * 3, my_total_cust, my_active_cust]
         
@@ -317,31 +282,27 @@ with col_chart1:
         )
         st.plotly_chart(fig_funnel, use_container_width=True)
         
-        # Tính tỷ lệ rớt khách
         drop_rate = 100 - (my_active_cust/my_total_cust*100) if my_total_cust > 0 else 0
         st.caption(f"💡 Phân tích: Có {drop_rate:.1f}% Khách hàng rớt lại ở khâu nạp tiền sau eKYC. Cần tăng cường gửi mã khuyến nghị để kích hoạt tập khách này.")
 
-# 2. BIỂU ĐỒ TĂNG TRƯỞNG TÀI SẢN (COMBO CHART) DỮ LIỆU ĐỘNG
 with col_chart2:
     with st.container(border=True):
-        st.markdown("**2. Tốc độ tăng trưởng Tài sản (AUM) & Hoa hồng**")
+        # LƯỢC BỎ TIẾNG ANH: (AUM)
+        st.markdown("**2. Tốc độ tăng trưởng Tài sản & Hoa hồng**")
         
-        # Đồng bộ lịch sử doanh số phí và mô phỏng AUM của 2 tháng trước
         months = ['Tháng 1', 'Tháng 2', 'Tháng 3 (Hiện tại)']
         commission_data = [my_fee_m1, my_fee_m2, my_fee_m3] 
-        aum_data = [my_total_aum * 0.4, my_total_aum * 0.7, my_total_aum] # AUM tăng trưởng giả định dẫn tới hiện tại
+        aum_data = [my_total_aum * 0.4, my_total_aum * 0.7, my_total_aum] 
         
         fig_combo = make_subplots(specs=[[{"secondary_y": True}]])
         
-        # Vẽ cột Hoa hồng (Trục Y phụ - Bên phải)
         fig_combo.add_trace(
             go.Bar(x=months, y=commission_data, name="Doanh số phí (VNĐ)", marker_color='rgba(237, 28, 36, 0.85)', width=0.4),
             secondary_y=True,
         )
         
-        # Vẽ miền AUM (Trục Y chính - Bên trái)
         fig_combo.add_trace(
-            go.Scatter(x=months, y=aum_data, name="AUM (VNĐ)", fill='tozeroy', mode='lines+markers', 
+            go.Scatter(x=months, y=aum_data, name="Tài sản (VNĐ)", fill='tozeroy', mode='lines+markers', 
                        line=dict(color='#10B981', width=3), fillcolor='rgba(16, 185, 129, 0.2)', marker=dict(size=8)),
             secondary_y=False,
         )
@@ -352,14 +313,13 @@ with col_chart2:
             legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
             plot_bgcolor='rgba(0,0,0,0)'
         )
-        fig_combo.update_yaxes(title_text="Tổng AUM (VNĐ)", secondary_y=False, showgrid=True, gridcolor='rgba(0,0,0,0.1)')
+        fig_combo.update_yaxes(title_text="Tổng Tài sản (VNĐ)", secondary_y=False, showgrid=True, gridcolor='rgba(0,0,0,0.1)')
         fig_combo.update_yaxes(title_text="Doanh số phí (VNĐ)", secondary_y=True, showgrid=False)
         
         st.plotly_chart(fig_combo, use_container_width=True)
-        st.caption("💡 Tương quan: Tổng tài sản quản lý (AUM) tăng trưởng dẫn tới sự bứt phá của Doanh số Phí môi giới.")
+        st.caption("💡 Tương quan: Tổng tài sản quản lý tăng trưởng dẫn tới sự bứt phá của Doanh số Phí môi giới.")
 
 st.markdown("<br>", unsafe_allow_html=True)
-# ==============================================================
 
 
 st.markdown("### I. Bảng chỉ số hiệu suất chi tiết")
@@ -382,7 +342,6 @@ with col_body1:
         st.markdown("<br>", unsafe_allow_html=True)
         st.markdown("**Lịch sử doanh số phí môi giới qua 3 tháng thử việc**")
         
-        # Hàm đánh giá tự động so với chuẩn KPI
         def check_fee_status(fee, target):
             if fee >= target:
                 return "Đạt tiêu chuẩn"
@@ -456,7 +415,7 @@ with col_gap2:
         if my_total_cust < t_cust:
             st.markdown(f"<span style='color: #ED1C24; font-weight: bold;'>Hành động:</span> Tăng cường tìm kiếm và phát triển mạng lưới để bổ sung thêm {t_cust - my_total_cust} khách hàng còn thiếu.", unsafe_allow_html=True)
         elif len(my_inactives) > 0:
-            st.markdown(f"<span style='color: #F59E0B; font-weight: bold;'>Hành động:</span> Vào phân hệ 'Advisory Hub' chọn mã tiềm năng để gửi khuyến nghị giao dịch trực tiếp cho nhóm tài khoản Inactive.", unsafe_allow_html=True)
+            st.markdown(f"<span style='color: #F59E0B; font-weight: bold;'>Hành động:</span> Vào phân hệ Trung tâm Khuyến nghị chọn mã tiềm năng để gửi phân tích trực tiếp cho nhóm tài khoản Inactive.", unsafe_allow_html=True)
         else:
             st.markdown(f"<span style='color: #10B981; font-weight: bold;'>Hành động:</span> Duy trì chất lượng tư vấn, đẩy mạnh phân phối chéo chứng chỉ quỹ S-FUND.", unsafe_allow_html=True)
 
@@ -487,6 +446,7 @@ with st.container(border=True):
     for rank_idx, b in enumerate(sorted_brokers, 1):
         rank_table.append({
             "Hạng": rank_idx,
+            "Mã NV": b.get("emp_code", ""), 
             "Thành viên nhóm": b["name"],
             "Kết quả thực hiện": get_val(b),
             "Định vị danh mục": "🟢 Bạn" if b["id"] == current_broker_id else "Đồng nghiệp"
@@ -498,6 +458,6 @@ with st.sidebar:
     st.markdown("---")
     st.markdown("**QUẢN TRỊ NỘI DUNG**")
     st.caption("Dữ liệu chỉ tiêu thử việc được áp dụng đồng bộ cho toàn bộ nhân sự theo quy chế tuyển dụng của SSI năm 2026.")
-# Gọi hàm hiển thị chân trang thương hiệu SSI
+
 from data.mock_data import render_footer
 render_footer()

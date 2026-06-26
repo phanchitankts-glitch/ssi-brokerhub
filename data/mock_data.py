@@ -28,13 +28,14 @@ CHURN_THRESHOLD_DAYS = 14
 # ============================================================
 # BROKERS — 6 thành viên đóng vai môi giới
 # ============================================================
+# Thay thế toàn bộ khối danh sách brokers cũ bằng khối này (đã thêm "emp_code")
 brokers = [
-    {"id": 1, "name": "Phan Chí Tấn", "avatar": "PT", "fee": {"month1": 5_800_000, "month2": 6_200_000, "month3": 5_000_000}},
-    {"id": 2, "name": "Nguyễn Hồ Xuân Thùy", "avatar": "XT", "fee": {"month1": 6_100_000, "month2": 5_900_000, "month3": 5_000_000}},
-    {"id": 3, "name": "Cao Tường Vy", "avatar": "TV", "fee": {"month1": 5_500_000, "month2": 6_300_000, "month3": 5_000_000}},
-    {"id": 4, "name": "Nguyễn Ngọc Thanh Ngân", "avatar": "TN", "fee": {"month1": 6_000_000, "month2": 5_700_000, "month3": 5_000_000}},
-    {"id": 5, "name": "Nguyễn Quang Huy", "avatar": "QH", "fee": {"month1": 5_900_000, "month2": 6_100_000, "month3": 5_000_000}},
-    {"id": 6, "name": "Lê Phước Tính", "avatar": "PT", "fee": {"month1": 5_200_000, "month2": 5_500_000, "month3": 5_000_000}}
+    {"id": 1, "emp_code": "SSI-001", "name": "Phan Chí Tấn", "avatar": "PT", "fee": {"month1": 5_800_000, "month2": 6_200_000, "month3": 5_000_000}},
+    {"id": 2, "emp_code": "SSI-002", "name": "Nguyễn Hồ Xuân Thùy", "avatar": "XT", "fee": {"month1": 6_100_000, "month2": 5_900_000, "month3": 5_000_000}},
+    {"id": 3, "emp_code": "SSI-003", "name": "Cao Tường Vy", "avatar": "TV", "fee": {"month1": 5_500_000, "month2": 6_300_000, "month3": 5_000_000}},
+    {"id": 4, "emp_code": "SSI-004", "name": "Nguyễn Ngọc Thanh Ngân", "avatar": "TN", "fee": {"month1": 6_000_000, "month2": 5_700_000, "month3": 5_000_000}},
+    {"id": 5, "emp_code": "SSI-005", "name": "Nguyễn Quang Huy", "avatar": "QH", "fee": {"month1": 5_900_000, "month2": 6_100_000, "month3": 5_000_000}},
+    {"id": 6, "emp_code": "SSI-006", "name": "Lê Phước Tính", "avatar": "PT", "fee": {"month1": 5_200_000, "month2": 5_500_000, "month3": 5_000_000}}
 ]
 
 # ============================================================

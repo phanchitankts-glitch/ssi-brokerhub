@@ -9,16 +9,10 @@ from streamlit_option_menu import option_menu
 
 st.set_page_config(page_title="Đánh giá Nội bộ | SSI BrokerHub", page_icon="assets/logo.png", layout="wide")
 
-# ========================================================
-# KIỂM TRA ĐĂNG NHẬP
-# ========================================================
 if "initialized" not in st.session_state or getattr(st.session_state, 'logged_in', False) == False:
     st.warning("Vui lòng quay lại trang chủ để đăng nhập.")
     st.stop()
 
-# ========================================================
-# THANH TIỆN ÍCH ĐỘNG (THÔNG BÁO, CHAT, PROFILE)
-# ========================================================
 current_user_id = st.session_state.current_broker_id
 brokers = st.session_state.get("brokers", [])
 current_user = next((b for b in brokers if b["id"] == current_user_id), {"name": "Cán bộ SSI"})
@@ -105,9 +99,6 @@ with col_profile:
             st.session_state.current_broker_id = None
             st.switch_page("app.py")
 
-# ========================================================
-# MENU NGANG TRÊN CÙNG (TOP NAVIGATION)
-# ========================================================
 def get_base64_image(image_path):
     try:
         with open(image_path, "rb") as img_file:
@@ -144,17 +135,12 @@ selected = option_menu(
 pages_dict = {"Tổng Quan": "pages/1_Tong_Quan.py", "Quản Trị Danh Mục": "pages/2_Quan_Tri_Danh_Muc.py", "Khuyến Nghị Đầu Tư": "pages/3_Khuyen_Nghi_Dau_Tu.py", "Theo Dõi KPI": "pages/4_Theo_Doi_KPI.py", "Nhật Ký Vận Hành": "pages/5_Nhat_Ky_Van_Hanh.py", "Đánh Giá Nội Bộ": "pages/6_Danh_Gia_Noi_Bo.py"}
 if pages_dict[selected] != "pages/6_Danh_Gia_Noi_Bo.py": st.switch_page(pages_dict[selected])
 
-# ==========================================
-# KHỞI TẠO DỮ LIỆU ĐÁNH GIÁ (MOCK DATA)
-# ==========================================
 if "evaluations" not in st.session_state:
     evals = []
     past_months = ["Tháng 1/2026", "Tháng 2/2026", "Tháng 3/2026", "Tháng 4/2026", "Tháng 5/2026"]
     
-    # Khóa random seed để điểm quá khứ cố định, không nhảy lung tung khi F5
     random.seed(123) 
     
-    # Tạo 6 phiếu cho mỗi người/tháng (1 tự đánh giá + 5 đánh giá chéo)
     for m in past_months:
         for target_b in brokers:
             for evaluator_b in brokers:
@@ -171,23 +157,15 @@ if "evaluations" not in st.session_state:
                 })
     st.session_state.evaluations = evals
 
-# ==========================================
-# GIAO DIỆN NGHIỆP VỤ CHÍNH
-# ==========================================
 st.markdown("<h2 style='color: #000000; margin-bottom: 0px;'>Đánh giá Nội bộ</h2>", unsafe_allow_html=True)
-# ĐÃ SỬA: Cụm từ mô tả tự nhiên và bớt AI hơn
 st.markdown("<p style='color: #6B7280; font-size: 1rem;'>Phân hệ quản lý và tổng hợp kết quả đánh giá năng lực nhân sự định kỳ.</p>", unsafe_allow_html=True)
 st.markdown("<br>", unsafe_allow_html=True)
 
-tab1, tab2 = st.tabs(["Tổng hợp kết quả đánh giá", "Thực hiện đánh giá (Kỳ hiện tại)"])
+tab1, tab2 = st.tabs(["Tổng hợp kết quả đánh giá", "Thực hiện đánh giá (Tháng hiện tại)"])
 
-# ----------------------------------------------------
-# TAB 1: TỔNG HỢP KẾT QUẢ ĐÁNH GIÁ
-# ----------------------------------------------------
 with tab1:
     df_evals = pd.DataFrame(st.session_state.evaluations)
     
-    # Cột Điểm Tổng Hợp
     df_evals['Điểm tổng hợp'] = df_evals[['Chuyên môn', 'Tư vấn', 'Làm việc nhóm', 'Kỷ luật']].mean(axis=1)
     
     col_filter1, col_filter2 = st.columns([1, 3])
@@ -195,13 +173,11 @@ with tab1:
         month_options = ["Tất cả các tháng"] + list(df_evals["Kỳ đánh giá"].unique())
         selected_month = st.selectbox("Lựa chọn kỳ báo cáo:", month_options, index=len(month_options)-1)
     
-    # Lọc dữ liệu theo tháng
     if selected_month != "Tất cả các tháng":
         df_filtered = df_evals[df_evals["Kỳ đánh giá"] == selected_month]
     else:
         df_filtered = df_evals.copy()
         
-    # Gom nhóm tính trung bình cho từng nhân sự (Ẩn danh người chấm)
     df_summary = df_filtered.groupby('target_id').agg(
         Số_phiếu=('evaluator_id', 'count'),
         Chuyên_môn=('Chuyên môn', 'mean'),
@@ -211,11 +187,9 @@ with tab1:
         Điểm_tổng_hợp=('Điểm tổng hợp', 'mean')
     ).reset_index()
     
-    # Map tên nhân sự
     broker_dict = {b["id"]: b["name"] for b in brokers}
     df_summary['Tên nhân sự'] = df_summary['target_id'].map(broker_dict)
     
-    # Sắp xếp và định dạng lại bảng để hiển thị
     df_display = df_summary[['Tên nhân sự', 'Số_phiếu', 'Chuyên_môn', 'Tư_vấn', 'Làm_việc_nhóm', 'Kỷ_luật', 'Điểm_tổng_hợp']].copy()
     df_display.columns = ['Tên nhân sự', 'Số lượng phiếu', 'Chuyên môn', 'Kỹ năng tư vấn', 'Làm việc nhóm', 'Tuân thủ kỷ luật', 'Điểm tổng hợp']
     df_display = df_display.sort_values(by="Điểm tổng hợp", ascending=False)
@@ -235,7 +209,6 @@ with tab1:
     col_chart1, col_chart2 = st.columns(2)
     
     with col_chart1:
-        # Biểu đồ cột: So sánh điểm tổng hợp
         st.markdown("**So sánh hiệu suất phòng (Điểm tổng hợp)**")
         fig_bar = px.bar(df_display, x="Tên nhân sự", y="Điểm tổng hợp", text_auto=".2f")
         colors = ['#ED1C24' if name == current_user['name'] else '#D1D5DB' for name in df_display['Tên nhân sự']]
@@ -244,8 +217,8 @@ with tab1:
         st.plotly_chart(fig_bar, use_container_width=True)
 
     with col_chart2:
-        # Biểu đồ Radar: Cá nhân vs Trung bình nhóm
-        st.markdown("**Định vị năng lực cá nhân (Radar)**")
+        # LƯỢC BỎ TIẾNG ANH: (Radar)
+        st.markdown("**Định vị năng lực cá nhân**")
         metrics = ['Chuyên môn', 'Kỹ năng tư vấn', 'Làm việc nhóm', 'Tuân thủ kỷ luật']
         
         my_stats = df_display[df_display["Tên nhân sự"] == current_user['name']]
@@ -262,10 +235,8 @@ with tab1:
         fig_radar.update_layout(polar=dict(radialaxis=dict(visible=True, range=[0, 10])), showlegend=True, margin=dict(t=20, b=0, l=0, r=0), height=350)
         st.plotly_chart(fig_radar, use_container_width=True)
 
-    # Biểu đồ Đường: Theo dõi phong độ cá nhân qua các tháng
     st.markdown("**Theo dõi phong độ cá nhân theo thời gian**")
     my_history = df_evals[df_evals["target_id"] == current_user_id].groupby("Kỳ đánh giá")["Điểm tổng hợp"].mean().reset_index()
-    # Sắp xếp đúng thứ tự tháng bằng cách lấy số tháng
     my_history['month_num'] = my_history['Kỳ đánh giá'].str.extract(r'(\d+)').astype(int)
     my_history = my_history.sort_values("month_num")
     
@@ -274,21 +245,16 @@ with tab1:
     fig_line.update_layout(yaxis=dict(range=[5, 10.5]), margin=dict(t=10, b=0, l=0, r=0), height=250, xaxis_title="", yaxis_title="Điểm trung bình")
     st.plotly_chart(fig_line, use_container_width=True)
 
-# ----------------------------------------------------
-# TAB 2: THỰC HIỆN ĐÁNH GIÁ KỲ MỚI (Form)
-# ----------------------------------------------------
 with tab2:
     current_period = "Tháng 6/2026"
     st.info(f"Kỳ đánh giá hiện tại: **{current_period}** (Thang điểm chuẩn: 1 - 10)")
     
-    # Kiểm tra xem user hiện tại đã submit cho tháng này chưa
     already_submitted = any(e for e in st.session_state.evaluations if e["evaluator_id"] == current_user_id and e["Kỳ đánh giá"] == current_period)
     
     if already_submitted:
         st.success("Hệ thống đã ghi nhận phiếu đánh giá của bạn cho kỳ này. Xin cảm ơn!")
     else:
         with st.form("evaluation_form"):
-            # Mục I: Tự đánh giá
             st.markdown("### I. Tự đánh giá cá nhân")
             st.caption("Đánh giá trung thực về hiệu suất công việc của bản thân trong tháng.")
             col_s1, col_s2, col_s3, col_s4 = st.columns(4)
@@ -299,7 +265,6 @@ with tab2:
             
             st.markdown("---")
             
-            # Mục II: Đánh giá chéo
             st.markdown("### II. Đánh giá chéo đồng nghiệp")
             st.caption("Nhận xét mang tính xây dựng cho các thành viên khác trong phòng. Kết quả sẽ được hệ thống tổng hợp ẩn danh.")
             
@@ -322,26 +287,20 @@ with tab2:
             if submit_btn:
                 new_records = []
                 
-                # Bản ghi tự đánh giá
                 new_records.append({
                     "Kỳ đánh giá": current_period, "target_id": current_user_id, "evaluator_id": current_user_id,
                     "Loại": "Tự đánh giá", "Chuyên môn": self_cm, "Tư vấn": self_tv, "Làm việc nhóm": self_tw, "Kỷ luật": self_kl
                 })
                 
-                # Bản ghi đánh giá chéo
                 for target_id, scores in peer_results.items():
                     new_records.append({
                         "Kỳ đánh giá": current_period, "target_id": target_id, "evaluator_id": current_user_id,
                         "Loại": "Đánh giá chéo", "Chuyên môn": scores["cm"], "Tư vấn": scores["tv"], "Làm việc nhóm": scores["tw"], "Kỷ luật": scores["kl"]
                     })
                 
-                # Nạp vào bộ nhớ tổng
                 st.session_state.evaluations.extend(new_records)
                 st.rerun()
 
-# ========================================================
-# GỌI HÀM HIỂN THỊ CHÂN TRANG THƯƠNG HIỆU SSI
-# ========================================================
 try:
     from data.mock_data import render_footer
     render_footer()

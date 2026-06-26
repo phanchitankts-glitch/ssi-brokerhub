@@ -1,6 +1,8 @@
 import streamlit as st
 import pandas as pd
+import yfinance as yf
 import base64
+import time
 from datetime import date
 from data.mock_data import calculate_days_since_trade, is_churn_risk
 from streamlit_option_menu import option_menu
@@ -55,7 +57,7 @@ msg_label = f"Tin nhắn ({unread_msgs})" if unread_msgs > 0 else "Tin nhắn"
 col_space, col_notif, col_chat, col_profile = st.columns([5.3, 1.7, 1.5, 2.5])
 
 with col_notif:
-    with st.popover(notif_label, icon=":material/notifications_none:"):
+    with st.popover(notif_label):
         st.markdown("**Thông báo hệ thống**")
         active_notifs = [n for n in st.session_state.notifications if not n["done"]]
         if not active_notifs:
@@ -67,7 +69,7 @@ with col_notif:
                     st.rerun()
 
 with col_chat:
-    with st.popover(msg_label, icon=":material/chat_bubble_outline:"):
+    with st.popover(msg_label):
         st.markdown("**Trao đổi nội bộ**")
         other_brokers = [b["name"] for b in st.session_state.brokers if b["id"] != current_user_id]
         chat_target = st.selectbox("Tìm đồng nghiệp:", other_brokers, label_visibility="collapsed")
@@ -88,9 +90,9 @@ with col_chat:
                 st.rerun()
 
 with col_profile:
-    with st.popover(current_user['name'], icon=":material/person_outline:"):
+    with st.popover(current_user['name']):
         st.markdown(f"**{current_user['name']}**")
-        st.caption("Trạng thái: Đang hoạt động 🟢")
+        st.caption("Trạng thái: Đang hoạt động")
         st.divider()
         if st.button("Xóa hộp thư đến", use_container_width=True):
             st.session_state.chat_messages = [m for m in st.session_state.chat_messages if m["to"] != current_user["name"]]
@@ -139,6 +141,22 @@ pages_dict = {"Tổng Quan": "pages/1_Tong_Quan.py", "Quản Trị Danh Mục": 
 if pages_dict[selected] != "pages/2_Quan_Tri_Danh_Muc.py": st.switch_page(pages_dict[selected])
 
 # ==========================================
+# TỪ ĐIỂN MÃ CỔ PHIẾU VÀ HÀM LẤY GIÁ LIVE
+# ==========================================
+VN_STOCKS = {
+    "ACB": "Ngân hàng TMCP Á Châu", "BCM": "Tổng CTCP Đầu tư và Phát triển Công nghiệp", "BID": "Ngân hàng TMCP Đầu tư và Phát triển VN", "BVH": "Tập đoàn Bảo Việt", "CTG": "Ngân hàng TMCP Công Thương VN", "FPT": "Công ty Cổ phần FPT", "GAS": "Tổng Công ty Khí Việt Nam", "GVR": "Tập đoàn Công nghiệp Cao su Việt Nam", "HDB": "Ngân hàng TMCP Phát triển TP.HCM", "HPG": "Công ty Cổ phần Tập đoàn Hòa Phát", "MBB": "Ngân hàng TMCP Quân đội", "MSN": "Công ty Cổ phần Tập đoàn Masan", "MWG": "Công ty Cổ phần Đầu tư Thế Giới Di Động", "PLX": "Tập đoàn Xăng dầu Việt Nam", "POW": "Tổng Công ty Điện lực Dầu khí Việt Nam", "SAB": "Tổng CTCP Bia - Rượu - Nước giải khát Sài Gòn", "SHB": "Ngân hàng TMCP Sài Gòn - Hà Nội", "SSB": "Ngân hàng TMCP Đông Nam Á", "SSI": "Công ty Cổ phần Chứng khoán SSI", "STB": "Ngân hàng TMCP Sài Thương Tín", "TCB": "Ngân hàng TMCP Kỹ thương Việt Nam", "TPB": "Ngân hàng TMCP Tiên Phong", "VCB": "Ngân hàng TMCP Ngoại thương Việt Nam", "VHM": "Công ty Cổ phần Vinhomes", "VIB": "Ngân hàng TMCP Quốc tế Việt Nam", "VIC": "Tập đoàn Vingroup", "VJC": "Công ty Cổ phần Hàng không Vietjet", "VNM": "Công ty Cổ phần Sữa Việt Nam", "VPB": "Ngân hàng TMCP Việt Nam Thịnh Vượng", "VRE": "Công ty Cổ phần Vincom Retail",
+    "VND": "CTCP Chứng khoán VNDIRECT", "VCI": "CTCP Chứng khoán Vietcap", "HCM": "CTCP Chứng khoán TP.HCM", "KBC": "Tổng Công ty Phát triển Đô thị Kinh Bắc", "DIG": "Tổng CTCP Đầu tư Phát triển Xây dựng", "NVL": "CTCP Tập đoàn Đầu tư Địa ốc No Va", "PVD": "Tổng CTCP Khoan và Dịch vụ Khoan Dầu khí", "PVS": "Tổng CTCP Dịch vụ Kỹ thuật Dầu khí", "DGC": "CTCP Tập đoàn Hóa chất Đức Giang", "DGW": "CTCP Thế Giới Số", "FRT": "CTCP Bán lẻ Kỹ thuật số FPT", "NKG": "CTCP Thép Nam Kim", "HSG": "CTCP Tập đoàn Hoa Sen", "KDH": "CTCP Đầu tư và Kinh doanh Nhà Khang Điền", "NLG": "CTCP Đầu tư Nam Long", "PC1": "CTCP Tập đoàn PC1", "REE": "CTCP Cơ Điện Lạnh", "VHC": "CTCP Vĩnh Hoàn", "ANV": "CTCP Nam Việt", "GEX": "CTCP Tập đoàn GELEX", "DXG": "CTCP Tập đoàn Đất Xanh", "CEO": "CTCP Tập đoàn C.E.O", "CII": "CTCP Đầu tư Hạ tầng Kỹ thuật TP.HCM", "HHV": "CTCP Đầu tư Hạ tầng Giao thông Đèo Cả", "LCG": "CTCP Lizen", "VCG": "Tổng CTCP Xuất nhập khẩu và Xây dựng VN", "KDC": "CTCP Tập đoàn KIDO", "SBT": "CTCP Thành Thành Công - Biên Hòa", "DBC": "CTCP Tập đoàn Dabaco Việt Nam", "HAG": "CTCP Hoàng Anh Gia Lai", "VIX": "CTCP Chứng khoán VIX", "BSI": "CTCP Chứng khoán BIDV", "CTS": "CTCP Chứng khoán VietinBank", "MBS": "CTCP Chứng khoán MB", "SHS": "CTCP Chứng khoán Sài Gòn - Hà Nội", "EIB": "Ngân hàng TMCP Xuất Nhập khẩu VN", "LPB": "Ngân hàng TMCP Lộc Phát VN", "OCB": "Ngân hàng TMCP Phương Đông", "MSB": "Ngân hàng TMCP Hàng Hải VN", "GMD": "CTCP Gemadept", "PVT": "Tổng CTCP Vận tải Dầu khí", "BSR": "CTCP Lọc hóa dầu Bình Sơn", "OIL": "Tổng Công ty Dầu Việt Nam", "NT2": "CTCP Điện lực Dầu khí Nhơn Trạch 2", "TCH": "CTCP Đầu tư Dịch vụ Tài chính Hoàng Huy", "BCG": "CTCP Tập đoàn Bamboo Capital", "PAN": "CTCP Tập đoàn PAN", "IDC": "Tổng công ty IDICO", "DPR": "CTCP Cao su Đồng Phú", "DRC": "CTCP Cao su Đà Nẵng", "BMP": "CTCP Nhựa Bình Minh", "PTB": "CTCP Phú Tài"
+}
+
+@st.cache_data(ttl=120)
+def get_live_price(ticker):
+    try: return yf.Ticker(f"{ticker}.VN").fast_info['lastPrice']
+    except: return 30000.0
+
+if "crm_staging_cart" not in st.session_state:
+    st.session_state.crm_staging_cart = []
+
+# ==========================================
 # KHU VỰC NGHIỆP VỤ CRM
 # ==========================================
 current_broker_id = st.session_state.current_broker_id
@@ -177,7 +195,6 @@ for c in my_customers:
 tab1, tab2 = st.tabs(["Báo cáo Danh mục & S-Products", "Khai báo Khách hàng mới"])
 
 with tab1:
-    # Khối Metrics Tổng quan
     col_m1, col_m2, col_m3, col_m4 = st.columns(4)
     total_cus = len(my_customers)
     total_asset = sum(c.get("trade_value", 0) for c in my_customers)
@@ -187,11 +204,10 @@ with tab1:
     with col_m1: st.metric("Tổng Khách hàng", f"{total_cus} KH")
     with col_m2: st.metric("Tài sản quản lý (AUM)", f"{total_asset:,.0f} đ")
     with col_m3: st.metric("Tỉ lệ Cross-sell", f"{int((cross_sell_count/total_cus)*100) if total_cus > 0 else 0}%", f"{cross_sell_count} KH đang dùng")
-    with col_m4: st.metric("Cảnh báo Churn (>14 ngày)", f"{churn_count} KH", delta="- Rủi ro cao", delta_color="inverse")
+    with col_m4: st.metric("Cảnh báo Churn (>14 ngày)", f"{churn_count} KH", delta="Rủi ro cao", delta_color="inverse")
     
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # Bộ lọc
     with st.container(border=True):
         col_f1, col_f2, col_f3 = st.columns(3)
         with col_f1: filter_status = st.selectbox("Trạng thái", ["Tất cả", "active", "inactive"])
@@ -200,7 +216,6 @@ with tab1:
             st.markdown("<br>", unsafe_allow_html=True)
             show_churn_only = st.checkbox("Chỉ hiển thị rủi ro Churn")
 
-    # Xử lý dữ liệu bảng
     filtered_customers = []
     status_map = {"active": "Đang GD", "inactive": "Tạm ngưng"}
 
@@ -226,7 +241,6 @@ with tab1:
     if filtered_customers:
         df = pd.DataFrame(filtered_customers)
         df = df.sort_values(by="trade_value", ascending=False)
-        
         df = df[["id", "name", "trade_value", "profit_margin", "portfolio_label", "s_products_label", "days_inactive", "status_label"]]
         df.columns = ["ID", "Khách Hàng", "NAV (VNĐ)", "Lãi/Lỗ (%)", "Danh Mục Cổ Phiếu", "Hệ Sinh Thái", "Số ngày chưa GD", "Trạng Thái"]
         
@@ -252,31 +266,94 @@ with tab1:
     else:
         st.info("Không tìm thấy dữ liệu khớp với bộ lọc.")
 
+# -------------------------------------------------------------------------
+# TAB 2 - FORM KHAI BÁO SẠCH SẼ KHÔNG CÓ EMOJI
+# -------------------------------------------------------------------------
 with tab2:
-    st.markdown("##### Khai báo Khách hàng mới")
-    with st.form("add_customer_form", clear_on_submit=True):
-        col_form1, col_form2 = st.columns(2)
-        with col_form1:
-            c_name = st.text_input("Họ và Tên (*)")
-            c_phone = st.text_input("Số điện thoại (*)")
-            c_products = st.multiselect("Đăng ký sử dụng dịch vụ chéo (S-Products)", ["S-BOND", "S-FUND", "S-MARGIN"])
-        with col_form2:
-            c_trade = st.number_input("Giá trị giao dịch dự kiến (VNĐ)", min_value=0, step=10000000, value=50000000)
-        
+    st.markdown("##### Khai báo Khách hàng & Cổ phiếu nắm giữ")
+    
+    col_f1, col_f2 = st.columns(2)
+    with col_f1:
+        crm_name = st.text_input("1. Họ và Tên khách hàng (*)", placeholder="VD: Nguyễn Văn Linh")
+        crm_phone = st.text_input("2. Số điện thoại (*)", placeholder="098xxxxxxx")
+    with col_f2:
+        crm_s_prod = st.multiselect("3. Đăng ký S-Products", ["S-BOND", "S-FUND", "S-MARGIN"])
+        st.caption("Khách hàng sẽ được tự động định giá theo biến động thị trường thực tế.")
+
+    st.markdown("---")
+    st.markdown("**Bước tiếp theo: Thêm mã cổ phiếu vào giỏ danh mục của khách**")
+    
+    sc1, sc2, sc3 = st.columns([2, 1.5, 1])
+    with sc1:
+        sel_crm_ticker = st.selectbox("Chọn mã chứng khoán niêm yết:", options=list(VN_STOCKS.keys()), key="crm_sel_tk")
+    with sc2:
+        sel_crm_vol = st.number_input("Khối lượng sở hữu:", min_value=100, step=100, value=1000, key="crm_sel_vol")
+    with sc3:
         st.markdown("<br>", unsafe_allow_html=True)
-        submitted = st.form_submit_button("Lưu hồ sơ Khách hàng", type="primary")
-        
-        if submitted and c_name and c_phone:
-            new_id = max([c["id"] for c in st.session_state.customers]) + 1
-            st.session_state.customers.append({
-                "id": new_id, "name": c_name, "phone": c_phone,
-                "open_date": st.session_state.demo_date.strftime("%Y-%m-%d"),
-                "last_trade_date": st.session_state.demo_date.strftime("%Y-%m-%d"),
-                "trade_value": c_trade, "profit_margin": 0.0,
-                "s_products": c_products, "portfolio": [],
-                "status": "active", "broker_id": current_broker_id
+        if st.button("Thêm vào giỏ", use_container_width=True):
+            price_now = get_live_price(sel_crm_ticker)
+            st.session_state.crm_staging_cart.append({
+                "ticker": sel_crm_ticker,
+                "volume": sel_crm_vol,
+                "price": price_now,
+                "val": price_now * sel_crm_vol
             })
-            st.success("Đã lưu hồ sơ thành công! Mời bạn qua Tab Báo cáo để xem.")
+            st.rerun()
+
+    p_now = get_live_price(sel_crm_ticker)
+    st.caption(f"Giá khớp lệnh hiện tại của {sel_crm_ticker}: {p_now:,.0f} VNĐ | Định giá lô này: {p_now * sel_crm_vol:,.0f} VNĐ")
+
+    # Hiển thị giỏ hàng dạng bảng doanh nghiệp chuyên nghiệp
+    if st.session_state.crm_staging_cart:
+        st.markdown("<br>**Các mã cổ phiếu chuẩn bị gán cho khách hàng:**", unsafe_allow_html=True)
+        df_staging = pd.DataFrame(st.session_state.crm_staging_cart)
+        df_staging.columns = ["Mã CP", "Khối lượng", "Giá thị trường", "Thành tiền (VNĐ)"]
+        st.dataframe(df_staging.style.format({"Khối lượng": "{:,.0f}", "Giá thị trường": "{:,.0f}", "Thành tiền (VNĐ)": "{:,.0f}"}), use_container_width=True)
+
+        total_est_nav = sum(x["val"] for x in st.session_state.crm_staging_cart)
+        st.markdown(f"**Tổng định giá danh mục ban đầu (AUM):** <span style='color:#059669; font-size:1.2rem; font-weight:bold;'>{total_est_nav:,.0f} VNĐ</span>", unsafe_allow_html=True)
+
+        col_b1, col_b2 = st.columns([1, 4])
+        with col_b1:
+            if st.button("Xóa giỏ hàng"):
+                st.session_state.crm_staging_cart = []
+                st.rerun()
+        with col_b2:
+            if st.button("HOÀN TẤT LƯU HỒ SƠ KHÁCH HÀNG", type="primary", use_container_width=True):
+                if not crm_name.strip() or not crm_phone.strip():
+                    st.error("Vui lòng điền đủ Họ tên và Số điện thoại!")
+                else:
+                    try: demo_dt = st.session_state.demo_date.strftime("%Y-%m-%d")
+                    except: demo_dt = date.today().strftime("%Y-%m-%d")
+                    
+                    try: new_crm_id = max([int(str(c["id"]).replace("C_","")) if str(c["id"]).startswith("C_") else int(c["id"]) if isinstance(c["id"], int) else 999 for c in st.session_state.customers]) + 1
+                    except: new_crm_id = len(st.session_state.customers) + 101
+                    
+                    st.session_state.customers.append({
+                        "id": new_crm_id,
+                        "name": crm_name.strip(),
+                        "phone": crm_phone.strip(),
+                        "open_date": demo_dt,
+                        "last_trade_date": demo_dt,
+                        "trade_value": total_est_nav,
+                        "profit_margin": 0.0,
+                        "s_products": crm_s_prod,
+                        "portfolio": [
+                            {
+                                "ticker": item["ticker"],
+                                "volume": item["volume"],
+                                "avg_price": item["price"]
+                            }
+                            for item in st.session_state.crm_staging_cart
+                        ],
+                        "status": "active",
+                        "broker_id": current_broker_id
+                    })
+                    st.session_state.crm_staging_cart = []
+                    st.success("Đã lưu hồ sơ thành công! Vui lòng chuyển sang Tab Báo cáo để kiểm tra.")
+                    time.sleep(1.2)
+                    st.rerun()
+
 # Gọi hàm hiển thị chân trang thương hiệu SSI
 from data.mock_data import render_footer
 render_footer()
